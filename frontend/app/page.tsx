@@ -1,11 +1,12 @@
 'use client';
-
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getOrCreateUserId } from '@/utils/identity';
 
 interface Room {
   id: number;
   status: 'playing' | 'finished' | 'draw';
+  is_public: boolean;
 }
 
 export default function LobbyPage() {
@@ -13,31 +14,37 @@ export default function LobbyPage() {
   const [secretCode, setSecretCode] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [publicRooms, setPublicRooms] = useState<Room[]>([]);
+  const [historyRooms, setHistoryRooms] = useState<Room[]>([]);
   const [isLoadingRooms, setIsLoadingRooms] = useState(true);
+  const [userId, setUserId] = useState<number>(0);
 
   useEffect(() => {
-    const fetchPublicRooms = async () => {
+    const uid = getOrCreateUserId();
+    setUserId(uid);
+
+    const fetchData = async () => {
       setIsLoadingRooms(true);
       try {
-        const res = await fetch('/api/game/lobby');
-        if (!res.ok) {
-          throw new Error('无法获取公开大厅数据');
+        const [lobbyRes, historyRes] = await Promise.all([
+            fetch('/api/game/lobby'),
+            fetch(`/api/game/history/${uid}`)
+        ]);
+        
+        if (lobbyRes.ok) {
+            const data = await lobbyRes.json();
+            setPublicRooms(data.success ? data.rooms : []);
         }
-        const data = await res.json();
-        if (data.success && Array.isArray(data.rooms)) {
-          setPublicRooms(data.rooms);
-        } else {
-          setPublicRooms([]);
+        if (historyRes.ok) {
+            const data = await historyRes.json();
+            setHistoryRooms(data.success ? data.history : []);
         }
       } catch (error) {
-        console.error('拉取公开大厅失败:', error);
-        setPublicRooms([]);
+        console.error('拉取数据失败:', error);
       } finally {
         setIsLoadingRooms(false);
       }
     };
-
-    fetchPublicRooms();
+    fetchData();
   }, []);
 
   const handleCreateRoom = async (isPublic: boolean) => {
@@ -46,7 +53,7 @@ export default function LobbyPage() {
       const res = await fetch('/api/game/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isPublic }),
+        body: JSON.stringify({ isPublic, userId }),
       });
       const data = await res.json();
 
@@ -162,6 +169,28 @@ export default function LobbyPage() {
                   验证并进入
                 </button>
               </div>
+            </div>
+
+            <div className="section-block">
+              <h3 className="section-title">我的战局 (最多 30 局)</h3>
+              <p className="section-desc">查看您参与过的历史对局。</p>
+              {historyRooms.length === 0 ? (
+                <div className="empty-state">暂无历史对局</div>
+              ) : (
+                <div className="room-list">
+                  {historyRooms.map((room) => (
+                    <div key={room.id} className="room-card" onClick={() => router.push(`/board/${room.id}`)}>
+                      <div className="room-info">
+                        <div className="room-title">对局 #{room.id}</div>
+                        <div className="room-meta">
+                          状态：<span className={`status-badge status-${room.status}`}>{room.status}</span>
+                          {room.is_public === false && <span className="room-private-tag">私密</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
         </div>

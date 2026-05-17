@@ -39,8 +39,10 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<number>(0);
+  const [boardInfo, setBoardInfo] = useState<any>({}); 
+  const [replayStep, setReplayStep] = useState<number>(-1); // -1 表示最新进度
 
-  // 1. 封装核心数据拉取与对比机制 (避免不必要的 Canvas 重绘)
+  // 1. 数据拉取逻辑中加入房主信息保存
   const fetchGameData = useCallback(async (showLoading = false) => {
     if (showLoading) setIsLoading(true);
     try {
@@ -49,10 +51,8 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
       const data = await res.json();
 
       if (data.success) {
-        // 如果后端Moves长度和本地一致，说明盘面未变，放弃更新，节省CPU
-        if (data.moves.length === boardState.moveHistory.length) {
-          return;
-        }
+        setBoardInfo(data.board); // 保存用来判断是否是房主
+        if (data.moves.length === boardState.moveHistory.length) return;
 
         const newBoard = Array(225).fill(0);
         data.moves.forEach((move: MoveRecord) => {
@@ -135,14 +135,16 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
     };
   }, [fetchGameData, boardState.gameState]);
 
-  // 绘制棋盘与棋子
+  // 3. 绘制逻辑改造：根据 replayStep 切割历史
   const drawBoard = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // 清空重绘
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
     // 1. 绘制棋盘底色
     ctx.fillStyle = '#DEB887'; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -174,42 +176,41 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
       ctx.fill();
     });
 
-    // 4. 绘制棋子本体与“气泡子”落子序号
-    boardState.moveHistory.forEach((move, index) => {
+    // 切割需要展示的历史记录
+    const movesToDraw = replayStep === -1 
+        ? boardState.moveHistory 
+        : boardState.moveHistory.slice(0, replayStep);
+
+    movesToDraw.forEach((move, index) => {
       const xPixel = BOARD_PADDING + move.x * CELL_SIZE;
       const yPixel = BOARD_PADDING + move.y * CELL_SIZE;
 
-      // 绘制棋子
       ctx.beginPath();
       ctx.arc(xPixel, yPixel, CELL_SIZE / 2 - 2, 0, Math.PI * 2);
-      
       const gradient = ctx.createRadialGradient(xPixel - 5, yPixel - 5, 2, xPixel, yPixel, CELL_SIZE / 2 - 2);
       if (move.player === 1) {
-        gradient.addColorStop(0, '#666');
-        gradient.addColorStop(1, '#000');
+        gradient.addColorStop(0, '#666'); gradient.addColorStop(1, '#000');
       } else {
-        gradient.addColorStop(0, '#fff');
-        gradient.addColorStop(1, '#ddd');
+        gradient.addColorStop(0, '#fff'); gradient.addColorStop(1, '#ddd');
       }
       ctx.fillStyle = gradient;
       ctx.fill();
 
-      // 【特殊场景强制约束】气泡子样式渲染落子序号：中心镂空，绝对禁止 fillText
+      // 严格遵循小孑的"气泡子"视觉要求：中心镂空
       const moveNumber = (index + 1).toString();
       ctx.font = 'bold 13px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      
-      // 黑子用白边，白子用黑边，保留内部镂空视觉连贯性
       ctx.strokeStyle = move.player === 1 ? '#FFFFFF' : '#000000';
       ctx.lineWidth = 1.5;
       ctx.strokeText(moveNumber, xPixel, yPixel);
     });
-  }, [boardState.moveHistory]);
+  }, [boardState.moveHistory, replayStep]);
 
   // 处理落子点击
   const handleCanvasClick = async (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (boardState.gameState !== 0 || isLoading || !userId) return;
+    if (replayStep !== -1) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -269,19 +270,59 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
     }
   };
 
-  const resetGame = () => {
-    setBoardState({
-      board: Array(225).fill(0),
-      currentPlayer: 1,
-      gameState: 0,
-      winner: null,
-      moveHistory: [],
-    });
+  const resetGame = async () => {
+    // 如果是房主，调用后端重置接口以清空服务器端历史；否则仅重置本地视图作为临时体验
+    if (boardInfo && boardInfo.black_user_id === userId) {
+      setIsLoading(true);
+      try {
+        const res = await fetch('/api/game/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ boardId, userId }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          await fetchGameData(true);
+          setReplayStep(-1);
+        } else {
+          alert(data.error || '重置失败');
+        }
+      } catch (err) {
+        console.error('重置请求失败:', err);
+        alert('重置请求失败');
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      setBoardState({
+        board: Array(225).fill(0),
+        currentPlayer: 1,
+        gameState: 0,
+        winner: null,
+        moveHistory: [],
+      });
+      setReplayStep(-1);
+    }
+  };
+
+  // 处理提前结束
+  const handleEndInAdvance = async () => {
+      if (!confirm("确定要提前结束该局并认输吗？")) return;
+      try {
+          await fetch('/api/game/end', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ boardId, userId }),
+          });
+          fetchGameData(true);
+      } catch(e) {
+          alert("操作失败");
+      }
   };
 
   useEffect(() => {
     drawBoard();
-  }, [drawBoard]);
+  }, [drawBoard, replayStep]);
 
   return (
     <div className="gomoku-board-shell">
@@ -322,6 +363,26 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
           </button>
         )}
         {isLoading && <div className="board-loading">正在处理...</div>}
+      </div>
+
+      <div className="board-controls" style={{ marginTop: '20px', display: 'flex', gap: '15px' }}>
+          {boardState.moveHistory.length > 0 && (
+              <input 
+                  type="range" 
+                  min={1} 
+                  max={boardState.moveHistory.length} 
+                  value={replayStep === -1 ? boardState.moveHistory.length : replayStep} 
+                  onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      setReplayStep(val === boardState.moveHistory.length ? -1 : val);
+                  }}
+                  style={{ flex: 1 }}
+              />
+          )}
+          
+          {boardInfo.black_user_id === userId && boardState.gameState === 0 && (
+              <button className="btn btn-secondary" onClick={handleEndInAdvance}>提前结束 (判负)</button>
+          )}
       </div>
     </div>
   );

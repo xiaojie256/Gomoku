@@ -235,8 +235,8 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
       alert('当前是黑子回合，只有黑方玩家可以落子');
       return;
     }
-    if (isWhiteTurn && !isWhitePlayer) {
-      alert('当前是白子回合，只有白方玩家可以落子');
+    if (isWhiteTurn && boardInfo.white_user_id && !isWhitePlayer) {
+      alert('当前棋局的白子已被其他玩家抢先绑定，你无法落子');
       return;
     }
 

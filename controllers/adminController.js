@@ -1,32 +1,28 @@
 const pool = require("../db/postgres");
+const redisClient = require("../db/redis");
 
 // 获取所有用户列表
 exports.getAllUsers = async (req, res) => {
-  const client = await pool.connect();
   try {
-    const result = await client.query(
+    const result = await pool.query(
       "SELECT id, username, is_admin, created_at FROM users ORDER BY created_at DESC",
     );
     res.json({ success: true, users: result.rows });
   } catch (err) {
     console.error("获取用户列表失败:", err);
     res.status(500).json({ error: "获取用户列表失败" });
-  } finally {
-    client.release();
   }
 };
 
 // 设置用户管理员权限
 exports.setUserAdmin = async (req, res) => {
-  // 支持通过 URL param 或请求 body 提交 userId
   const userId = req.params.userId || req.body.userId;
   const isAdmin =
     typeof req.body.isAdmin !== "undefined"
       ? req.body.isAdmin
       : req.query.isAdmin === "true";
-  const client = await pool.connect();
   try {
-    await client.query("UPDATE users SET is_admin = $1 WHERE id = $2", [
+    await pool.query("UPDATE users SET is_admin = $1 WHERE id = $2", [
       isAdmin,
       userId,
     ]);
@@ -34,8 +30,6 @@ exports.setUserAdmin = async (req, res) => {
   } catch (err) {
     console.error("设置管理员权限失败:", err);
     res.status(500).json({ error: "设置管理员权限失败" });
-  } finally {
-    client.release();
   }
 };
 
@@ -75,9 +69,8 @@ exports.deleteUser = async (req, res) => {
 
 // 获取所有对局列表
 exports.getAllGames = async (req, res) => {
-  const client = await pool.connect();
   try {
-    const result = await client.query(
+    const result = await pool.query(
       `SELECT b.id, b.status, b.is_public, b.created_at, b.winner_id, 
               b.black_user_id, b.white_user_id,
               u1.username as black_username, 
@@ -92,8 +85,6 @@ exports.getAllGames = async (req, res) => {
   } catch (err) {
     console.error("获取对局列表失败:", err);
     res.status(500).json({ error: "获取对局列表失败" });
-  } finally {
-    client.release();
   }
 };
 
@@ -121,9 +112,8 @@ exports.deleteGame = async (req, res) => {
 // 获取单个用户信息
 exports.getUserById = async (req, res) => {
   const { userId } = req.params;
-  const client = await pool.connect();
   try {
-    const result = await client.query(
+    const result = await pool.query(
       "SELECT id, username, is_admin, created_at FROM users WHERE id = $1",
       [userId],
     );
@@ -134,23 +124,18 @@ exports.getUserById = async (req, res) => {
   } catch (err) {
     console.error("获取用户信息失败:", err);
     res.status(500).json({ error: "获取用户信息失败" });
-  } finally {
-    client.release();
   }
 };
 
 // 获取系统统计信息
 exports.getStats = async (req, res) => {
-  const client = await pool.connect();
   try {
-    const userCount = await client.query("SELECT COUNT(*) FROM users");
-    const gameCount = await client.query("SELECT COUNT(*) FROM boards");
-    const activeGameCount = await client.query(
-      "SELECT COUNT(*) FROM boards WHERE status = 'playing'",
-    );
-    const finishedGameCount = await client.query(
-      "SELECT COUNT(*) FROM boards WHERE status = 'finished'",
-    );
+    const [userCount, gameCount, activeGameCount, finishedGameCount] = await Promise.all([
+      pool.query("SELECT COUNT(*) FROM users"),
+      pool.query("SELECT COUNT(*) FROM boards"),
+      pool.query("SELECT COUNT(*) FROM boards WHERE status = 'playing'"),
+      pool.query("SELECT COUNT(*) FROM boards WHERE status = 'finished'")
+    ]);
 
     res.json({
       success: true,
@@ -164,16 +149,13 @@ exports.getStats = async (req, res) => {
   } catch (err) {
     console.error("获取统计信息失败:", err);
     res.status(500).json({ error: "获取统计信息失败" });
-  } finally {
-    client.release();
   }
 };
 
 // 获取系统全局设置
 exports.getSettings = async (req, res) => {
-  const client = await pool.connect();
   try {
-    const result = await client.query("SELECT key, value FROM global_settings");
+    const result = await pool.query("SELECT key, value FROM global_settings");
     const settings = {};
     result.rows.forEach(row => {
       settings[row.key] = row.value;
@@ -182,8 +164,6 @@ exports.getSettings = async (req, res) => {
   } catch (err) {
     console.error("获取设置失败:", err);
     res.status(500).json({ error: "获取设置失败" });
-  } finally {
-    client.release();
   }
 };
 
@@ -194,17 +174,16 @@ exports.updateSetting = async (req, res) => {
     return res.status(400).json({ error: "缺少参数" });
   }
 
-  const client = await pool.connect();
   try {
-    await client.query(
+    await pool.query(
       "INSERT INTO global_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP",
       [key, String(value)]
     );
+    // 同步更新 Redis 缓存
+    await redisClient.set(`global_settings:${key}`, String(value));
     res.json({ success: true });
   } catch (err) {
     console.error("更新设置失败:", err);
     res.status(500).json({ error: "更新设置失败" });
-  } finally {
-    client.release();
   }
 };

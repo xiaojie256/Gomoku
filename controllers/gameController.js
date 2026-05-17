@@ -91,10 +91,9 @@ exports.submitMove = async (req, res) => {
     if (currentBoard[positionIndex] !== 0) throw new Error("该位置已被占用");
 
     pointer = wasmModule._malloc(900);
-    for (let i = 0; i < 225; i++) {
-      wasmModule.setValue(pointer + i * 4, currentBoard[i], "i32");
-    }
-    wasmModule.setValue(pointer + positionIndex * 4, player, "i32");
+    // 优化：使用 HEAP32.set 批量复制，避免 225 次跨语言边界调用
+    currentBoard[positionIndex] = player;
+    wasmModule.HEAP32.set(new Int32Array(currentBoard), pointer >> 2);
 
     const gameState = wasmModule._check_game_state(pointer, x, y, player);
 
@@ -138,9 +137,19 @@ exports.createGame = async (req, res) => {
 
   const client = await pool.connect();
   try {
-    // ⬇️ 新增：动态读取全局限制阈值，如果没取到则默认 fallback 为 5
-    const settingsRes = await client.query("SELECT value FROM global_settings WHERE key = 'max_active_games'");
-    const maxGamesLimit = settingsRes.rows.length > 0 ? parseInt(settingsRes.rows[0].value) : 5;
+    // 优化：优先从 Redis 缓存读取 max_active_games，避免每次建局都查数据库
+    let maxGamesLimit = 5;
+    const cachedLimit = await redisClient.get('global_settings:max_active_games');
+    if (cachedLimit) {
+      maxGamesLimit = parseInt(cachedLimit);
+    } else {
+      const settingsRes = await client.query("SELECT value FROM global_settings WHERE key = 'max_active_games'");
+      if (settingsRes.rows.length > 0) {
+        maxGamesLimit = parseInt(settingsRes.rows[0].value);
+        // 回写缓存
+        await redisClient.set('global_settings:max_active_games', maxGamesLimit.toString());
+      }
+    }
 
     // ⬇️ 修改：检查进行中的棋局是否超过动态阈值
     const countRes = await client.query(

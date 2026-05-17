@@ -1,5 +1,5 @@
 // test_wasm.js
-const createGomokuLogic = require('./logic.js');
+const createGomokuLogic = require('./wasm/logic.js');
 
 createGomokuLogic().then((wasmModule) => {
     // 1. 分配内存

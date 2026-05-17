@@ -6,18 +6,22 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  /* 优化背景：深邃的紫色渐变叠加微小的点状棋盘纹理 */
+  background: radial-gradient(circle at 50% 0%, #4c1d95 0%, #0f172a 70%);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                    radial-gradient(circle at 50% 0%, #4c1d95 0%, #0f172a 70%);
+  background-size: 24px 24px, 100% 100%;
+  background-color: #0f172a;
   min-height: 100vh;
+  color: #f8f9fb;
 }
 
 .page-shell {
   min-height: 100vh;
-  padding: 32px 24px;
-  color: #f8f9fb;
+  padding: 40px 24px;
 }
 
 .page-container {
@@ -27,115 +31,135 @@ body {
 
 .page-header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 50px;
 }
 
 .headline-tag {
   display: inline-flex;
-  padding: 10px 18px;
+  padding: 8px 16px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  color: #f8f9fb;
-  font-size: 0.95rem;
-  letter-spacing: 0.06em;
-  margin-bottom: 18px;
+  background: rgba(167, 139, 250, 0.15);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  color: #ddd6fe;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  margin-bottom: 20px;
+  text-transform: uppercase;
 }
 
 .page-title {
-  font-size: clamp(2.4rem, 4vw, 4rem);
-  line-height: 1.05;
-  font-weight: 800;
-  margin-top: 18px;
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  line-height: 1.1;
+  font-weight: 900;
+  margin-top: 0;
+  /* 渐变标题 */
+  background: linear-gradient(to right, #ffffff, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.02em;
 }
 
 .page-subtitle {
-  color: rgba(248, 249, 251, 0.78);
-  max-width: 760px;
-  margin: 16px auto 0;
-  line-height: 1.85;
+  color: rgba(248, 249, 251, 0.6);
+  max-width: 600px;
+  margin: 20px auto 0;
+  line-height: 1.6;
+  font-size: 1.1rem;
 }
 
 .grid-layout {
   display: grid;
-  gap: 24px;
-  grid-template-columns: minmax(0, 1.8fr) minmax(320px, 1fr);
+  gap: 32px;
+  grid-template-columns: minmax(0, 1.8fr) minmax(340px, 1fr);
 }
 
 .panel {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 28px;
-  padding: 28px;
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(18px);
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
-.panel-header,
-.section-block {
+.panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .section-title {
-  font-size: 1.35rem;
-  font-weight: 700;
-  margin-bottom: 8px;
+  font-size: 1.5rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .section-desc {
-  color: rgba(248, 249, 251, 0.75);
-  line-height: 1.75;
-  margin: 0;
+  color: rgba(248, 249, 251, 0.5);
+  font-size: 0.95rem;
+  margin-bottom: 20px;
 }
 
+/* 按钮全局优化 */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   border: none;
-  border-radius: 18px;
-  padding: 14px 22px;
+  border-radius: 14px;
+  padding: 12px 20px;
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.btn:hover {
-  transform: translateY(-1px);
+.btn:active {
+  transform: scale(0.97);
 }
 
 .btn-primary {
-  background: #ffb703;
-  color: #0f172a;
-  box-shadow: 0 18px 50px rgba(255, 183, 3, 0.2);
+  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+  color: #ffffff;
+  box-shadow: 0 10px 25px -5px rgba(139, 92, 246, 0.4);
 }
 
 .btn-primary:hover {
-  background: #ffb003;
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
+  box-shadow: 0 15px 35px -5px rgba(139, 92, 246, 0.5);
+  transform: translateY(-2px);
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
   color: #f8f9fb;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .btn-tertiary {
-  background: rgba(255, 255, 255, 0.12);
-  color: #f8f9fb;
+  background: transparent;
+  color: #a78bfa;
+  padding: 8px 16px;
 }
 
 .btn-tertiary:hover {
-  background: rgba(255, 255, 255, 0.20);
+  background: rgba(167, 139, 250, 0.1);
 }
 
+/* 房间卡片高级悬浮动效 */
 .room-list {
   display: grid;
   gap: 16px;
@@ -145,109 +169,206 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 18px;
-  padding: 18px 22px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.10);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 20px 24px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-left: 4px solid transparent;
 }
 
 .room-card:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(30, 41, 59, 0.8);
+  transform: translateX(6px);
+  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.5);
+  border-color: rgba(255, 255, 255, 0.15);
+  border-left-color: #8b5cf6;
 }
 
 .room-info {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .room-title {
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.room-meta {
-  color: rgba(248, 249, 251, 0.72);
-  font-size: 0.95rem;
+/* 状态徽章与呼吸灯效果 */
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 
 .status-badge {
   display: inline-flex;
   align-items: center;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 0.85rem;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
 }
 
 .status-playing {
-  background: rgba(16, 185, 129, 0.18);
-  color: #a7f3d0;
+  background: rgba(16, 185, 129, 0.1);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+.status-playing .status-dot {
+  background: #10b981;
+  animation: pulse-ring 2s infinite;
 }
 
 .status-finished {
-  background: rgba(248, 113, 113, 0.18);
-  color: #fecaca;
+  background: rgba(248, 113, 113, 0.1);
+  color: #fca5a5;
+  border: 1px solid rgba(248, 113, 113, 0.2);
 }
+.status-finished .status-dot { background: #ef4444; }
 
 .status-draw {
-  background: rgba(59, 130, 246, 0.18);
-  color: #bfdbfe;
+  background: rgba(96, 165, 250, 0.1);
+  color: #93c5fd;
+  border: 1px solid rgba(96, 165, 250, 0.2);
 }
+.status-draw .status-dot { background: #3b82f6; }
 
+/* 缺省页 */
 .empty-state {
-  padding: 28px;
+  padding: 40px 20px;
   text-align: center;
-  color: rgba(248, 249, 251, 0.74);
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px dashed rgba(255, 255, 255, 0.14);
-  border-radius: 22px;
+  color: rgba(248, 249, 251, 0.4);
+  background: rgba(15, 23, 42, 0.3);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
+/* 操作面板与输入框 */
 .action-buttons {
   display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
 
 .input-group {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
+  margin-top: 10px;
 }
 
 .form-input {
   width: 100%;
-  padding: 16px 18px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.10);
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.6);
   color: #f8f9fb;
   outline: none;
   font-size: 1rem;
-}
-
-.form-input::placeholder {
-  color: rgba(248, 249, 251, 0.55);
+  transition: all 0.2s;
 }
 
 .form-input:focus {
-  border-color: rgba(255, 255, 255, 0.35);
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+  background: rgba(15, 23, 42, 0.8);
+}
+
+/* 专属暗码输入框样式：增加黑客密钥感 */
+.secret-code-input {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1.5rem;
+  letter-spacing: 0.4em;
+  text-align: center;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+.secret-code-input::placeholder {
+  font-size: 1rem;
+  letter-spacing: normal;
+  font-family: inherit;
+  font-weight: normal;
 }
 
 @media (max-width: 960px) {
-  .grid-layout {
-    grid-template-columns: 1fr;
-  }
+  .grid-layout { grid-template-columns: 1fr; }
+  .action-buttons { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 640px) {
-  .page-shell {
-    padding: 20px 16px;
+  /* 基础间距收缩 */
+  .page-shell { 
+    padding: 20px 16px; 
+  }
+  .page-title { 
+    font-size: 2.2rem; 
+  }
+  .panel { 
+    padding: 24px 20px; /* 减小移动端内边距，给内容留出更多空间 */
+  }
+  
+  /* 修复 2：按钮防挤压，改为纵向排列 */
+  .action-buttons { 
+    grid-template-columns: 1fr; 
+  }
+  
+  /* 修复 3：暗码输入框防溢出 */
+  .secret-code-input {
+    font-size: 1.2rem;
+    letter-spacing: 0.25em;
   }
 
-  .page-header {
-    text-align: left;
+  /* 大厅房间卡片适配 */
+  .room-card { 
+    flex-direction: column; 
+    align-items: flex-start; 
+    gap: 16px; 
+  }
+  .room-card .btn { 
+    width: 100%; 
+  }
+
+  /* 修复 1 终极版：全向自由滑动，丝滑如拖拽地图 */
+  .canvas-wrapper {
+    display: block; /* 彻底解除 flex 轴线束缚，让子元素完全自由撑开 */
+    width: 100%;
+    overflow: auto; /* 开启 X 和 Y 轴的全向滑动 */
+    -webkit-overflow-scrolling: touch; /* iOS 原生惯性回弹机制 */
+    overscroll-behavior: contain; /* 关键：死死拦截浏览器的"右滑返回"和"下拉刷新"手势，专心滑棋盘 */
+    scrollbar-width: none; 
+    -ms-overflow-style: none;
+    padding: 0; /* 移除容器 padding，避免滑动边界产生粘滞感 */
+  }
+  
+  .canvas-wrapper::-webkit-scrollbar { 
+    display: none; 
+  }
+  
+  .gomoku-canvas {
+    max-width: none;
+    margin: 16px auto; /* 用元素的 margin 替代外层容器的 padding 留白 */
+    display: block;
+    touch-action: pan-x pan-y; /* 明确告诉浏览器：此区域的触摸操作专门用于平移，提升触摸优先级 */
   }
 }
 

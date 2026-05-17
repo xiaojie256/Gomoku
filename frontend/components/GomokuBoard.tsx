@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { getOrCreateUserId } from '@/utils/identity';
+import { fetchWithAuth } from '@/utils/auth';
 
 const BOARD_SIZE = 15;
 const CELL_SIZE = 40;
@@ -38,7 +38,7 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
     moveHistory: [],
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [userId, setUserId] = useState<number>(0);
+  const [currentUser, setCurrentUser] = useState<{ id: number; username: string } | null>(null);
   const [boardInfo, setBoardInfo] = useState<any>({}); 
   const [replayStep, setReplayStep] = useState<number>(-1); // -1 表示最新进度
 
@@ -89,7 +89,19 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
 
   // 2. 挂载智能可见性调度器 (Smart Polling Scheduler)
   useEffect(() => {
-    setUserId(getOrCreateUserId());
+    const loadCurrentUser = async () => {
+      try {
+        const res = await fetchWithAuth('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          setCurrentUser(data.user);
+        }
+      } catch (error) {
+        console.warn('获取当前用户失败:', error);
+      }
+    };
+
+    loadCurrentUser();
     
     // 首次进入强制开启 Loading
     fetchGameData(true);
@@ -209,7 +221,7 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
 
   // 处理落子点击
   const handleCanvasClick = async (event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (boardState.gameState !== 0 || isLoading || !userId) return;
+    if (boardState.gameState !== 0 || isLoading || !currentUser) return;
     if (replayStep !== -1) return;
 
     const canvas = canvasRef.current;
@@ -230,12 +242,10 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/game/move', {
+      const response = await fetchWithAuth('/api/game/move', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          boardId: boardId,
-          userId: userId,
+          boardId,
           x: gridX,
           y: gridY,
           player: boardState.currentPlayer,
@@ -272,13 +282,12 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
 
   const resetGame = async () => {
     // 如果是房主，调用后端重置接口以清空服务器端历史；否则仅重置本地视图作为临时体验
-    if (boardInfo && boardInfo.black_user_id === userId) {
+    if (boardInfo && boardInfo.black_user_id === currentUser?.id) {
       setIsLoading(true);
       try {
-        const res = await fetch('/api/game/reset', {
+        const res = await fetchWithAuth('/api/game/reset', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ boardId, userId }),
+          body: JSON.stringify({ boardId }),
         });
         const data = await res.json();
         if (res.ok && data.success) {
@@ -309,10 +318,9 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
   const handleEndInAdvance = async () => {
       if (!confirm("确定要提前结束该局并认输吗？")) return;
       try {
-          await fetch('/api/game/end', {
+          await fetchWithAuth('/api/game/end', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ boardId, userId }),
+              body: JSON.stringify({ boardId }),
           });
           fetchGameData(true);
       } catch(e) {
@@ -354,13 +362,19 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
       </div>
 
       <div className="board-footer">
-        {boardState.gameState !== 0 && (
+        {boardState.gameState !== 0 && boardInfo.black_user_id === currentUser?.id && (
           <button
             onClick={resetGame}
             className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
           >
-            重新开始
+            房主重置对局
           </button>
+        )}
+        {boardState.gameState !== 0 && boardInfo.black_user_id !== currentUser?.id && (
+          <div className="board-note">本局已结束，仅房主可重置。</div>
+        )}
+        {!currentUser && (
+          <div className="board-note">请先登录后才能落子或查看您的身份。</div>
         )}
         {isLoading && <div className="board-loading">正在处理...</div>}
       </div>
@@ -380,7 +394,7 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
               />
           )}
           
-          {boardInfo.black_user_id === userId && boardState.gameState === 0 && (
+          {boardInfo.black_user_id === currentUser?.id && boardState.gameState === 0 && (
               <button className="btn btn-secondary" onClick={handleEndInAdvance}>提前结束 (判负)</button>
           )}
       </div>

@@ -52,7 +52,6 @@ export default function LobbyPage() {
         setCurrentUser(data.user);
       }
     } catch (error) {
-      console.warn('获取当前用户失败:', error);
       clearAuthToken();
       setCurrentUser(null);
     }
@@ -114,11 +113,11 @@ export default function LobbyPage() {
 
       if (res.ok && data.success) {
         if (!isPublic) {
-          alert(`创建成功！请牢记您的暗码：${data.secretCode}\n将此暗码分享给对手。`);
+          alert(`私密战局开辟成功！\n请将 6 位暗码发给挑战者：${data.secretCode}`);
         }
         router.push(`/board/${data.boardId}`);
       } else {
-        alert('创建失败: ' + (data.error || '服务器返回异常'));
+        alert('开局失败: ' + (data.error || '未知异常'));
       }
     } catch (error) {
       alert('网络请求失败');
@@ -135,7 +134,7 @@ export default function LobbyPage() {
     }
 
     if (secretCode.length !== 6) {
-      alert('请输入 6 位正确的暗码');
+      alert('请输入完整的 6 位验证暗码');
       return;
     }
     try {
@@ -149,10 +148,10 @@ export default function LobbyPage() {
       if (res.ok && data.success) {
         router.push(`/board/${data.boardId}`);
       } else {
-        alert(data.error || '暗码无效');
+        alert(data.error || '暗码无效，未匹配到进行中的棋盘');
       }
     } catch (error) {
-      alert('验证请求失败');
+      alert('暗码鉴权失败');
     }
   };
 
@@ -167,8 +166,8 @@ export default function LobbyPage() {
     if (isLoadingRooms) {
       return (
         <div className="empty-state">
-          <svg className="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-          <p>正在同步对局数据...</p>
+          <svg style={{ animation: 'spin 1s linear infinite' }} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+          <p>正在同步云端底层数据...</p>
         </div>
       );
     }
@@ -176,7 +175,6 @@ export default function LobbyPage() {
     if (rooms.length === 0) {
       return (
         <div className="empty-state">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>
           <p>{emptyMessage}</p>
         </div>
       );
@@ -187,14 +185,11 @@ export default function LobbyPage() {
         {rooms.map((room) => (
           <div className="room-card" key={room.id}>
             <div className="room-info">
-              <div className="room-title">
-                <span>对局 #{room.id}</span>
-              </div>
+              <div className="room-title">对局房间 #{room.id}</div>
               <StatusBadge status={room.status} />
             </div>
             <button className="btn btn-secondary" onClick={() => router.push(`/board/${room.id}`)}>
               <span>观战 / 进入</span>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             </button>
           </div>
         ))}
@@ -206,119 +201,90 @@ export default function LobbyPage() {
     <div className="page-shell">
       <div className="page-container">
         <header className="page-header">
-          <span className="headline-tag">Gomoku Unlimited</span>
-          <h1 className="page-title">异步五子棋</h1>
+          <span className="headline-tag">Gomoku Asynchronous Core</span>
+          <h1 className="page-title">异步棋对战大厅</h1>
           <p className="page-subtitle">
-            打破实时对齐压力。建立对局，分配阵营，数据落盘。随时随地接续你的棋局。
+            打破实时在线长时对局的高压束缚。随时建立，随时离线，数据物理安全落盘。
           </p>
           <div className="auth-status-bar">
             {currentUser ? (
               <div className="user-info">
-                已登录：<strong>{currentUser.username}</strong>
-                <button className="btn btn-tertiary" type="button" onClick={handleLogout}>
-                  退出登录
-                </button>
+                <span>鉴权身份：<strong>{currentUser.username}</strong></span>
+                <button className="btn btn-tertiary" onClick={handleLogout}>退出</button>
               </div>
             ) : (
               <div className="user-info">
-                <span>您当前未登录。</span>
-                <button className="btn btn-primary" type="button" onClick={() => router.push('/login')}>
-                  登录
-                </button>
-                <button className="btn btn-tertiary" type="button" onClick={() => router.push('/register')}>
-                  注册
-                </button>
+                <span>未受托鉴权令牌。</span>
+                <button className="btn btn-tertiary" onClick={() => router.push('/login')}>登录</button>
+                <button className="btn btn-tertiary" onClick={() => router.push('/register')}>注册</button>
               </div>
             )}
           </div>
         </header>
 
         <div className="grid-layout">
-          <div className="left-column" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             <div className="panel">
               <div className="panel-header">
-                <div>
-                  <h2 className="section-title">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                    世界大厅
-                  </h2>
-                </div>
-                <button className="btn btn-tertiary" onClick={refreshRooms}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
-                  刷新
-                </button>
+                <h2 className="section-title">世界公开大厅</h2>
+                <button className="btn btn-tertiary" onClick={refreshRooms}>同步刷新</button>
               </div>
-              <p className="section-desc">当前公开的活跃对局，任何人都可以争夺白子首发权。</p>
-              {renderRoomList(publicRooms, '大厅空空如也，快去创立一局吧！')}
+              <p className="section-desc">当前面向全网公开的棋局，任意挑战者均享有白方落子抢位特权。</p>
+              {renderRoomList(publicRooms, '暂无活跃公开棋局，点击右侧建立新战线。')}
             </div>
 
             <div className="panel">
-              <div className="panel-header" style={{ marginBottom: '16px', paddingBottom: '16px' }}>
-                <h2 className="section-title" style={{ fontSize: '1.2rem' }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                  我的战局 (近 30 局)
-                </h2>
+              <div className="panel-header">
+                <h2 className="section-title">我的个人战局 (近30局)</h2>
               </div>
-              {currentUser ? renderRoomList(historyRooms, '您还没有参与过任何对局。') : (
+              {currentUser ? renderRoomList(historyRooms, '您的足迹未曾涉及任一棋盘。') : (
                 <div className="empty-state">
-                  <p>登录后可查看自己的历史对局。</p>
+                  <p style={{ margin: 0 }}>登录账户后可恢复完整的弈棋历史绑定树。</p>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="right-column" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             <div className="panel">
-              <h2 className="section-title">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                发起对局
-              </h2>
-              <p className="section-desc" style={{ marginBottom: '24px' }}>
-                房主默认执黑先行。公开局将展示在大厅，私密局需要 6 位暗码进入。
-              </p>
+              <h2 className="section-title" style={{ marginBottom: '8px' }}>开辟新棋局</h2>
+              <p className="section-desc">您将作为房主默认执黑子先行。私密局自动生成 6 位反混淆一次性密码。</p>
               <div className="action-buttons">
-                <button
-                  className="btn btn-primary"
-                  onClick={() => handleCreateRoom(true)}
-                  disabled={isCreating}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                <button className="btn btn-primary" onClick={() => handleCreateRoom(true)} disabled={isCreating}>
                   创建公开局
                 </button>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => handleCreateRoom(false)}
-                  disabled={isCreating}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                  建立私密局
+                <button className="btn btn-secondary" onClick={() => handleCreateRoom(false)} disabled={isCreating}>
+                  建立加密私密局
                 </button>
               </div>
             </div>
 
             <div className="panel">
-              <h2 className="section-title">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
-                加入暗码局
-              </h2>
-              <p className="section-desc">受邀玩家输入对应的 6 位暗码进入战场。</p>
+              <h2 className="section-title" style={{ marginBottom: '8px' }}>破译暗码加入</h2>
+              <p className="section-desc">在下方框内键入受邀得来的 6 位特定战局暗码解锁边界。</p>
               <div className="input-group">
                 <input
                   type="text"
-                  placeholder="请输入 6 位暗码"
+                  placeholder="请输入6位暗码"
                   maxLength={6}
                   value={secretCode}
                   onChange={(e) => setSecretCode(e.target.value.replace(/[^0-9a-zA-Z]/g, '').toUpperCase())}
                   className="form-input secret-code-input"
                 />
-                <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleJoinPrivate}>
-                  解码并进入战场
+                <button className="btn btn-primary" onClick={handleJoinPrivate}>
+                  安全解码并进入战场
                 </button>
               </div>
             </div>
           </div>
         </div>
       </div>
+      <style jsx global>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

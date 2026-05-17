@@ -7,8 +7,8 @@ const BOARD_SIZE = 15;
 const CELL_SIZE = 40;
 const BOARD_PADDING = 30;
 
-type Player = 1 | 2; // 1: 黑子, 2: 白子
-type GameState = 0 | 1 | -1; // 0: 继续, 1: 胜利, -1: 和局
+type Player = 1 | 2; 
+type GameState = 0 | 1 | -1; 
 
 interface MoveRecord {
   x: number;
@@ -17,11 +17,11 @@ interface MoveRecord {
 }
 
 interface BoardState {
-  board: number[]; // 225 长度的一维数组
+  board: number[]; 
   currentPlayer: Player;
   gameState: GameState;
   winner: Player | null;
-  moveHistory: MoveRecord[]; // 记录落子历史用以渲染序号
+  moveHistory: MoveRecord[]; 
 }
 
 interface GomokuBoardProps {
@@ -40,9 +40,8 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<{ id: number; username: string } | null>(null);
   const [boardInfo, setBoardInfo] = useState<any>({}); 
-  const [replayStep, setReplayStep] = useState<number>(-1); // -1 表示最新进度
+  const [replayStep, setReplayStep] = useState<number>(-1); 
 
-  // 1. 数据拉取逻辑中加入房主信息保存
   const fetchGameData = useCallback(async (showLoading = false) => {
     if (showLoading) setIsLoading(true);
     try {
@@ -51,8 +50,7 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
       const data = await res.json();
 
       if (data.success) {
-        setBoardInfo(data.board); // 保存用来判断是否是房主
-        // Check both move count and status changes to ensure updates for early end/draw scenarios
+        setBoardInfo(data.board); 
         if (data.moves.length === boardState.moveHistory.length && data.board.status === boardInfo.status) return;
 
         const newBoard = Array(225).fill(0);
@@ -82,13 +80,12 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
         });
       }
     } catch (error) {
-      console.error('自动同步盘面异常:', error);
+       console.error('自动同步盘面异常:', error);
     } finally {
       if (showLoading) setIsLoading(false);
     }
   }, [boardId, boardState.moveHistory.length, boardInfo.status]);
 
-  // 2. 挂载智能可见性调度器 (Smart Polling Scheduler)
   useEffect(() => {
     const loadCurrentUser = async () => {
       try {
@@ -103,19 +100,14 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
     };
 
     loadCurrentUser();
-    
-    // 首次进入强制开启 Loading
     fetchGameData(true);
 
     let timerId: NodeJS.Timeout | null = null;
-
     const startPolling = () => {
       if (timerId) clearInterval(timerId);
-      // 慢节奏对局，设定 6 秒智能局部轻轮询即可
       timerId = setInterval(() => {
-        // 仅在游戏未结束、非加载中、且页面处于激活可见状态时才请求后端
         if (boardState.gameState === 0 && document.visibilityState === 'visible' && !document.hidden) {
-          fetchGameData(false); // 隐式无感刷新
+          fetchGameData(false); 
         }
       }, 6000);
     };
@@ -127,60 +119,49 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
       }
     };
 
-    // 监听浏览器标签页切换及休眠机制，严防空转对 1.8G 服务器造成多余负载
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        fetchGameData(false); // 回焦时主动拉取一次最新盘面
+        fetchGameData(false); 
         startPolling();
       } else {
-        stopPolling(); // 标签页切走时立刻断开轮询，腾出服务器 CPU
+        stopPolling(); 
       }
     };
 
-    // 启动轮询并注册监听
     startPolling();
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // 销毁时清理，严防前端内存泄漏
     return () => {
       stopPolling();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchGameData, boardState.gameState]);
 
-  // 3. 绘制逻辑改造：根据 replayStep 切割历史
   const drawBoard = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // 清空重绘
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // 1. 绘制棋盘底色
     ctx.fillStyle = '#DEB887'; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 2. 绘制网格线
     ctx.strokeStyle = '#8B4513';
     ctx.lineWidth = 1;
 
     for (let i = 0; i < BOARD_SIZE; i++) {
-      // 横线
       ctx.beginPath();
       ctx.moveTo(BOARD_PADDING, BOARD_PADDING + i * CELL_SIZE);
       ctx.lineTo(BOARD_PADDING + (BOARD_SIZE - 1) * CELL_SIZE, BOARD_PADDING + i * CELL_SIZE);
       ctx.stroke();
 
-      // 竖线
       ctx.beginPath();
       ctx.moveTo(BOARD_PADDING + i * CELL_SIZE, BOARD_PADDING);
       ctx.lineTo(BOARD_PADDING + i * CELL_SIZE, BOARD_PADDING + (BOARD_SIZE - 1) * CELL_SIZE);
       ctx.stroke();
     }
 
-    // 3. 绘制星位
     const starPoints = [[3, 3], [3, 7], [3, 11], [7, 3], [7, 7], [7, 11], [11, 3], [11, 7], [11, 11]];
     ctx.fillStyle = '#8B4513';
     starPoints.forEach(([x, y]) => {
@@ -189,7 +170,6 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
       ctx.fill();
     });
 
-    // 切割需要展示的历史记录
     const movesToDraw = replayStep === -1 
         ? boardState.moveHistory 
         : boardState.moveHistory.slice(0, replayStep);
@@ -209,7 +189,7 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
       ctx.fillStyle = gradient;
       ctx.fill();
 
-      // 严格遵循小孑的"气泡子"视觉要求：中心镂空
+      // "气泡子"视觉中心孔状空心序号生成层
       const moveNumber = (index + 1).toString();
       ctx.font = 'bold 13px Arial';
       ctx.textAlign = 'center';
@@ -220,12 +200,11 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
     });
   }, [boardState.moveHistory, replayStep]);
 
-  // 处理落子点击
+  // 处理移动端手势解析
   const handleCanvasClick = async (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (boardState.gameState !== 0 || isLoading || !currentUser) return;
     if (replayStep !== -1) return;
 
-    // 验证回合与身份
     const isBlackTurn = boardState.currentPlayer === 1;
     const isWhiteTurn = boardState.currentPlayer === 2;
     const isBlackPlayer = boardInfo.black_user_id === currentUser.id;
@@ -244,11 +223,16 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
+    // 兼容移动端各种缩放比例下的坐标精准抓取与像素对齐逻辑
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
-    const gridX = Math.round((x - BOARD_PADDING) / CELL_SIZE);
-    const gridY = Math.round((y - BOARD_PADDING) / CELL_SIZE);
+    // 考虑getBoundingClientRect在移动端受CSS拉伸产生的映射偏差，按画布固有宽高比例折算
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    const gridX = Math.round(((x * scaleX) - BOARD_PADDING) / CELL_SIZE);
+    const gridY = Math.round(((y * scaleY) - BOARD_PADDING) / CELL_SIZE);
 
     if (gridX < 0 || gridX >= BOARD_SIZE || gridY < 0 || gridY >= BOARD_SIZE) return;
 
@@ -275,10 +259,8 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
       }
 
       const data = await response.json();
-
       const newBoard = [...boardState.board];
       newBoard[index] = boardState.currentPlayer;
-
       const newMove: MoveRecord = { x: gridX, y: gridY, player: boardState.currentPlayer };
 
       setBoardState({
@@ -289,7 +271,6 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
         moveHistory: [...boardState.moveHistory, newMove],
       });
     } catch (error: any) {
-      console.error('落子错误:', error);
       alert(`落子失败: ${error.message}`);
     } finally {
       setIsLoading(false);
@@ -297,7 +278,6 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
   };
 
   const resetGame = async () => {
-    // 如果是房主，调用后端重置接口以清空服务器端历史；否则仅重置本地视图作为临时体验
     if (boardInfo && boardInfo.black_user_id === currentUser?.id) {
       setIsLoading(true);
       try {
@@ -313,7 +293,6 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
           alert(data.error || '重置失败');
         }
       } catch (err) {
-        console.error('重置请求失败:', err);
         alert('重置请求失败');
       } finally {
         setIsLoading(false);
@@ -330,7 +309,6 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
     }
   };
 
-  // 处理提前结束
   const handleEndInAdvance = async () => {
       if (!confirm("确定要提前结束该局并认输吗？")) return;
       try {
@@ -352,16 +330,16 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
     <div className="gomoku-board-shell">
       <div className="board-status-row">
         <div className="board-status-card">
-          <div className="board-status-label">当前玩家</div>
+          <div className="board-status-label">当前回合</div>
           <div className={`board-status-value board-status-${boardState.currentPlayer}`}>
-            {boardState.currentPlayer === 1 ? '黑子' : '白子'}
+            {boardState.currentPlayer === 1 ? '黑子先行' : '白子下位'}
           </div>
         </div>
 
         <div className="board-status-card">
-          <div className="board-status-label">当前状态</div>
+          <div className="board-status-label">判定结果</div>
           <div className={`board-status-value board-result-${boardState.gameState}`}>
-            {boardState.gameState === 0 ? '进行中' : boardState.gameState === 1 ? `${boardState.winner === 1 ? '黑子' : '白子'} 获胜` : '和局'}
+            {boardState.gameState === 0 ? '激战中' : boardState.gameState === 1 ? `${boardState.winner === 1 ? '黑子' : '白子'} 胜` : '和局'}
           </div>
         </div>
       </div>
@@ -377,42 +355,46 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
         />
       </div>
 
-      <div className="board-footer">
-        {boardState.gameState !== 0 && boardInfo.black_user_id === currentUser?.id && (
-          <button
-            onClick={resetGame}
-            className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
-          >
-            房主重置对局
-          </button>
-        )}
-        {boardState.gameState !== 0 && boardInfo.black_user_id !== currentUser?.id && (
-          <div className="board-note">本局已结束，仅房主可重置。</div>
-        )}
-        {!currentUser && (
-          <div className="board-note">请先登录后才能落子或查看您的身份。</div>
-        )}
-        {isLoading && <div className="board-loading">正在处理...</div>}
-      </div>
-
-      <div className="board-controls" style={{ marginTop: '20px', display: 'flex', gap: '15px' }}>
+      <div className="board-controls">
           {boardState.moveHistory.length > 0 && (
-              <input 
-                  type="range" 
-                  min={1} 
-                  max={boardState.moveHistory.length} 
-                  value={replayStep === -1 ? boardState.moveHistory.length : replayStep} 
-                  onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      setReplayStep(val === boardState.moveHistory.length ? -1 : val);
-                  }}
-                  style={{ flex: 1 }}
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '0.85rem', color: 'rgba(248,249,251,0.5)' }}>
+                  拖动复盘历史轨迹：Step ({replayStep === -1 ? boardState.moveHistory.length : replayStep}/{boardState.moveHistory.length})
+                </span>
+                <input 
+                    type="range" 
+                    min={1} 
+                    max={boardState.moveHistory.length} 
+                    value={replayStep === -1 ? boardState.moveHistory.length : replayStep} 
+                    onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        setReplayStep(val === boardState.moveHistory.length ? -1 : val);
+                    }}
+                    className="range-slider-mobile"
+                />
+              </div>
           )}
           
-          {boardInfo.black_user_id === currentUser?.id && boardState.gameState === 0 && (
-              <button className="btn btn-secondary" onClick={handleEndInAdvance}>提前结束 (判负)</button>
-          )}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'space-between', alignItems: 'center' }}>
+            {boardState.gameState !== 0 && boardInfo.black_user_id === currentUser?.id && (
+              <button onClick={resetGame} className="btn btn-primary" style={{ flex: '1' }}>
+                房主重置对局
+              </button>
+            )}
+            {boardInfo.black_user_id === currentUser?.id && boardState.gameState === 0 && (
+                <button className="btn btn-secondary" onClick={handleEndInAdvance} style={{ flex: '1' }}>投降认输 (判负)</button>
+            )}
+          </div>
+      </div>
+
+      <div className="board-footer" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '14px' }}>
+        {boardState.gameState !== 0 && boardInfo.black_user_id !== currentUser?.id && (
+          <div className="section-desc" style={{ margin: 0 }}>本局已定胜负，仅房主可以触发盘面洗牌重置。</div>
+        )}
+        {!currentUser && (
+          <div className="section-desc" style={{ margin: 0, color: '#fca5a5' }}>检测到您未登录账号，无法承接落子身份。</div>
+        )}
+        {isLoading && <div className="status-badge status-playing" style={{ background: 'transparent' }}><span className="status-dot"></span>核心异步同步中...</div>}
       </div>
     </div>
   );

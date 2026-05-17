@@ -399,42 +399,28 @@ body {
 
 /* 核心容器：完美平滑滚动与两端溢出半透明视觉淡出指示器 */
 .canvas-wrapper {
-  display: block;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   position: relative;
   width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-x: contain;
-  padding: 12px 4px;
+  min-height: 0;
+  padding: 12px 8px;
   background: rgba(15, 23, 42, 0.4);
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  
-  /* 移动端两边缘渐变阴影指示器，明示此区域可以滚动 */
-  background-image: 
-    linear-gradient(to right, rgba(15,23,42,0.8), rgba(15,23,42,0) 20px),
-    linear-gradient(to left, rgba(15,23,42,0.8), rgba(15,23,42,0) 20px);
-  background-position: left center, right center;
-  background-repeat: no-repeat;
-  background-size: 20px 100%;
-}
-
-.canvas-wrapper::-webkit-scrollbar {
-  height: 4px;
-}
-.canvas-wrapper::-webkit-scrollbar-thumb {
-  background: rgba(167, 139, 250, 0.2);
-  border-radius: 99px;
+  overflow: visible;
 }
 
 .gomoku-canvas {
   display: block;
-  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
   border: 4px solid rgba(255, 255, 255, 0.15);
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-  touch-action: pan-x; /* 明确锁死纵向手势，横向平移不干扰页面上下滑动 */
+  touch-action: none;
+  cursor: pointer;
 }
 
 /* 滑块控件样式深度移动端定制 */
@@ -470,6 +456,32 @@ body {
 
 .range-slider-mobile::-webkit-slider-thumb:active {
   transform: scale(1.2);
+}
+
+/* 缩放控制按钮容器 */
+.zoom-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.zoom-controls .btn {
+  padding: 10px 16px;
+  min-width: 44px;
+  font-size: 0.9rem;
+}
+
+.zoom-display {
+  display: flex;
+  align-items: center;
+  color: rgba(248, 249, 251, 0.7);
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-width: 60px;
+  justify-content: center;
 }
 
 /* =========================================

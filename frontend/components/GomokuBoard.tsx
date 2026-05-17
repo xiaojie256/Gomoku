@@ -40,7 +40,10 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<{ id: number; username: string } | null>(null);
   const [boardInfo, setBoardInfo] = useState<any>({}); 
-  const [replayStep, setReplayStep] = useState<number>(-1); 
+  const [replayStep, setReplayStep] = useState<number>(-1);
+  const [cellSize, setCellSize] = useState(CELL_SIZE);
+  const [boardPadding, setBoardPadding] = useState(BOARD_PADDING);
+  const [zoom, setZoom] = useState(1); 
 
   const fetchGameData = useCallback(async (showLoading = false) => {
     if (showLoading) setIsLoading(true);
@@ -137,6 +140,36 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
     };
   }, [fetchGameData, boardState.gameState]);
 
+  // 动态计算棋盘大小以适应屏幕
+  useEffect(() => {
+    const calculateBoardSize = () => {
+      const screenWidth = window.innerWidth;
+      const padding = 32; // 左右总边距
+      const availableWidth = screenWidth - padding;
+      
+      // 计算合适的单元格大小，确保棋盘能完整显示
+      // 棋盘需要 14 个格子宽度 + 2 个边距
+      const maxCellSize = Math.floor((availableWidth - 60) / 14);
+      
+      // 设置最小和最大单元格大小
+      const minCellSize = 20;
+      const maxAllowedCellSize = 50;
+      
+      let newCellSize = Math.max(minCellSize, Math.min(maxAllowedCellSize, maxCellSize));
+      let newBoardPadding = Math.max(15, Math.floor(newCellSize * 0.75));
+      
+      setCellSize(newCellSize);
+      setBoardPadding(newBoardPadding);
+    };
+
+    calculateBoardSize();
+    window.addEventListener('resize', calculateBoardSize);
+    
+    return () => {
+      window.removeEventListener('resize', calculateBoardSize);
+    };
+  }, []);
+
   const drawBoard = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -152,13 +185,13 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
 
     for (let i = 0; i < BOARD_SIZE; i++) {
       ctx.beginPath();
-      ctx.moveTo(BOARD_PADDING, BOARD_PADDING + i * CELL_SIZE);
-      ctx.lineTo(BOARD_PADDING + (BOARD_SIZE - 1) * CELL_SIZE, BOARD_PADDING + i * CELL_SIZE);
+      ctx.moveTo(boardPadding, boardPadding + i * cellSize);
+      ctx.lineTo(boardPadding + (BOARD_SIZE - 1) * cellSize, boardPadding + i * cellSize);
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.moveTo(BOARD_PADDING + i * CELL_SIZE, BOARD_PADDING);
-      ctx.lineTo(BOARD_PADDING + i * CELL_SIZE, BOARD_PADDING + (BOARD_SIZE - 1) * CELL_SIZE);
+      ctx.moveTo(boardPadding + i * cellSize, boardPadding);
+      ctx.lineTo(boardPadding + i * cellSize, boardPadding + (BOARD_SIZE - 1) * cellSize);
       ctx.stroke();
     }
 
@@ -166,7 +199,7 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
     ctx.fillStyle = '#8B4513';
     starPoints.forEach(([x, y]) => {
       ctx.beginPath();
-      ctx.arc(BOARD_PADDING + x * CELL_SIZE, BOARD_PADDING + y * CELL_SIZE, 4, 0, Math.PI * 2);
+      ctx.arc(boardPadding + x * cellSize, boardPadding + y * cellSize, Math.max(3, cellSize * 0.1), 0, Math.PI * 2);
       ctx.fill();
     });
 
@@ -175,12 +208,12 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
         : boardState.moveHistory.slice(0, replayStep);
 
     movesToDraw.forEach((move, index) => {
-      const xPixel = BOARD_PADDING + move.x * CELL_SIZE;
-      const yPixel = BOARD_PADDING + move.y * CELL_SIZE;
+      const xPixel = boardPadding + move.x * cellSize;
+      const yPixel = boardPadding + move.y * cellSize;
 
       ctx.beginPath();
-      ctx.arc(xPixel, yPixel, CELL_SIZE / 2 - 2, 0, Math.PI * 2);
-      const gradient = ctx.createRadialGradient(xPixel - 5, yPixel - 5, 2, xPixel, yPixel, CELL_SIZE / 2 - 2);
+      ctx.arc(xPixel, yPixel, cellSize / 2 - 2, 0, Math.PI * 2);
+      const gradient = ctx.createRadialGradient(xPixel - 5, yPixel - 5, 2, xPixel, yPixel, cellSize / 2 - 2);
       if (move.player === 1) {
         gradient.addColorStop(0, '#666'); gradient.addColorStop(1, '#000');
       } else {
@@ -191,14 +224,14 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
 
       // "气泡子"视觉中心孔状空心序号生成层
       const moveNumber = (index + 1).toString();
-      ctx.font = 'bold 13px Arial';
+      ctx.font = `bold ${Math.max(10, cellSize * 0.35)}px Arial`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.strokeStyle = move.player === 1 ? '#FFFFFF' : '#000000';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = Math.max(1, cellSize * 0.04);
       ctx.strokeText(moveNumber, xPixel, yPixel);
     });
-  }, [boardState.moveHistory, replayStep]);
+  }, [boardState.moveHistory, replayStep, cellSize, boardPadding]);
 
   // 处理移动端手势解析
   const handleCanvasClick = async (event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -231,8 +264,8 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
 
-    const gridX = Math.round(((x * scaleX) - BOARD_PADDING) / CELL_SIZE);
-    const gridY = Math.round(((y * scaleY) - BOARD_PADDING) / CELL_SIZE);
+    const gridX = Math.round(((x * scaleX) - boardPadding) / cellSize);
+    const gridY = Math.round(((y * scaleY) - boardPadding) / cellSize);
 
     if (gridX < 0 || gridX >= BOARD_SIZE || gridY < 0 || gridY >= BOARD_SIZE) return;
 
@@ -347,12 +380,43 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
       <div className="canvas-wrapper">
         <canvas
           ref={canvasRef}
-          width={BOARD_PADDING * 2 + (BOARD_SIZE - 1) * CELL_SIZE}
-          height={BOARD_PADDING * 2 + (BOARD_SIZE - 1) * CELL_SIZE}
+          width={boardPadding * 2 + (BOARD_SIZE - 1) * cellSize}
+          height={boardPadding * 2 + (BOARD_SIZE - 1) * cellSize}
           onClick={handleCanvasClick}
           className="gomoku-canvas"
-          style={{ cursor: isLoading ? 'wait' : 'pointer' }}
+          style={{ 
+            cursor: isLoading ? 'wait' : 'pointer',
+            transform: `scale(${zoom})`,
+            transformOrigin: 'center',
+            transition: 'transform 0.2s ease-out'
+          }}
         />
+      </div>
+
+      <div className="zoom-controls">
+        <button 
+          className="btn btn-secondary" 
+          onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
+          disabled={zoom <= 0.5}
+        >
+          缩小
+        </button>
+        <span className="zoom-display">
+          {Math.round(zoom * 100)}%
+        </span>
+        <button 
+          className="btn btn-secondary" 
+          onClick={() => setZoom(Math.min(3, zoom + 0.25))}
+          disabled={zoom >= 3}
+        >
+          放大
+        </button>
+        <button 
+          className="btn btn-tertiary" 
+          onClick={() => setZoom(1)}
+        >
+          重置
+        </button>
       </div>
 
       <div className="board-controls">

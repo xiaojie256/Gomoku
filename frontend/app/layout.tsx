@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 5,
-  userScalable: 'yes',
+  maximumScale: 1, // 锁定网页本身缩放，允许应用内部处理，防止触控落子时网页跟着颤抖
+  userScalable: false,
 };
 
 export default function RootLayout({
@@ -20,9 +20,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
-      </head>
       <body>{children}</body>
     </html>
   );

@@ -397,30 +397,29 @@ body {
   font-weight: 700;
 }
 
-/* 核心容器：完美平滑滚动与两端溢出半透明视觉淡出指示器 */
+/* 完美跨端流式弹性包裹壳层 */
 .canvas-wrapper {
   display: flex;
   justify-content: center;
   align-items: center;
-  position: relative;
   width: 100%;
-  min-height: 0;
-  padding: 12px 8px;
+  padding: 8px;
   background: rgba(15, 23, 42, 0.4);
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  overflow: visible;
+  overflow: hidden;
 }
 
+/* 彻底解决缩放错位，使用百分比安全限高宽进行自适应 */
 .gomoku-canvas {
   display: block;
-  max-width: 100%;
+  width: 100%;
+  max-width: 580px; /* 适配全面屏移动设备的安全冗余宽度 */
   height: auto;
+  aspect-ratio: 1 / 1;
   border: 4px solid rgba(255, 255, 255, 0.15);
   border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-  touch-action: none;
-  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
 }
 
 /* 滑块控件样式深度移动端定制 */

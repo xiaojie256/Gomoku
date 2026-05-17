@@ -52,7 +52,8 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
 
       if (data.success) {
         setBoardInfo(data.board); // 保存用来判断是否是房主
-        if (data.moves.length === boardState.moveHistory.length) return;
+        // Check both move count and status changes to ensure updates for early end/draw scenarios
+        if (data.moves.length === boardState.moveHistory.length && data.board.status === boardInfo.status) return;
 
         const newBoard = Array(225).fill(0);
         data.moves.forEach((move: MoveRecord) => {
@@ -85,7 +86,7 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
     } finally {
       if (showLoading) setIsLoading(false);
     }
-  }, [boardId, boardState.moveHistory.length]);
+  }, [boardId, boardState.moveHistory.length, boardInfo.status]);
 
   // 2. 挂载智能可见性调度器 (Smart Polling Scheduler)
   useEffect(() => {
@@ -223,6 +224,21 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
   const handleCanvasClick = async (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (boardState.gameState !== 0 || isLoading || !currentUser) return;
     if (replayStep !== -1) return;
+
+    // 验证回合与身份
+    const isBlackTurn = boardState.currentPlayer === 1;
+    const isWhiteTurn = boardState.currentPlayer === 2;
+    const isBlackPlayer = boardInfo.black_user_id === currentUser.id;
+    const isWhitePlayer = boardInfo.white_user_id === currentUser.id;
+
+    if (isBlackTurn && !isBlackPlayer) {
+      alert('当前是黑子回合，只有黑方玩家可以落子');
+      return;
+    }
+    if (isWhiteTurn && !isWhitePlayer) {
+      alert('当前是白子回合，只有白方玩家可以落子');
+      return;
+    }
 
     const canvas = canvasRef.current;
     if (!canvas) return;

@@ -148,15 +148,10 @@ exports.createGame = async (req, res) => {
 
     const secretCode = isPublic ? null : generateSecretCode();
     const result = await client.query(
-      "INSERT INTO boards (status, is_public, secret_code, black_user_id) VALUES ('playing', $1, $2, $3) RETURNING id, secret_code",
-      [isPublic, secretCode, userId],
-    );
-    res.json({
-      success: true,
-      boardId: result.rows[0].id,
-      secretCode: result.rows[0].secret_code,
-    });
-  } catch (err) {
+      const board = result.rows[0];
+      // 不在暗码验证环节自动分配白方，保留首个实际落子时的 "先落子得白" 机制。
+      // 仅返回可加入的棋盘 ID，实际身份在第一次落子时由后端在事务内确定并绑定。
+      res.json({ success: true, boardId: board.id });
     res.status(500).json({ error: "建局事务失败" });
   } finally {
     client.release();
@@ -183,13 +178,6 @@ exports.verifySecretCode = async (req, res) => {
     }
 
     const board = result.rows[0];
-    if (!board.white_user_id && board.black_user_id !== userId && userId) {
-      await client.query("UPDATE boards SET white_user_id = $1 WHERE id = $2", [
-        userId,
-        board.id,
-      ]);
-    }
-
     res.json({ success: true, boardId: board.id });
   } catch (err) {
     console.error("验证失败:", err);
@@ -285,7 +273,7 @@ exports.getUserHistory = async (req, res) => {
   const client = await pool.connect();
   try {
     const result = await client.query(
-      `SELECT DISTINCT b.id, b.status, b.is_public
+      `SELECT DISTINCT b.id, b.status, b.is_public, b.created_at
              FROM boards b
              LEFT JOIN moves m ON b.id = m.board_id
              WHERE b.black_user_id = $1 OR b.white_user_id = $1 OR m.user_id = $1

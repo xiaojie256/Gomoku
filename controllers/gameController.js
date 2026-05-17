@@ -91,9 +91,10 @@ exports.submitMove = async (req, res) => {
     if (currentBoard[positionIndex] !== 0) throw new Error("该位置已被占用");
 
     pointer = wasmModule._malloc(900);
-    // 优化：使用 HEAP32.set 批量复制，避免 225 次跨语言边界调用
-    currentBoard[positionIndex] = player;
-    wasmModule.HEAP32.set(new Int32Array(currentBoard), pointer >> 2);
+    for (let i = 0; i < 225; i++) {
+      wasmModule.setValue(pointer + i * 4, currentBoard[i], "i32");
+    }
+    wasmModule.setValue(pointer + positionIndex * 4, player, "i32");
 
     const gameState = wasmModule._check_game_state(pointer, x, y, player);
 
@@ -119,7 +120,7 @@ exports.submitMove = async (req, res) => {
   } finally {
     if (pointer) wasmModule._free(pointer);
     // 确保无论如何事务都会被关闭，防止连接池泄漏
-    client.release(); 
+    client.release();
     await redisClient.del(lockKey);
   }
 };
@@ -139,15 +140,22 @@ exports.createGame = async (req, res) => {
   try {
     // 优化：优先从 Redis 缓存读取 max_active_games，避免每次建局都查数据库
     let maxGamesLimit = 5;
-    const cachedLimit = await redisClient.get('global_settings:max_active_games');
+    const cachedLimit = await redisClient.get(
+      "global_settings:max_active_games",
+    );
     if (cachedLimit) {
       maxGamesLimit = parseInt(cachedLimit);
     } else {
-      const settingsRes = await client.query("SELECT value FROM global_settings WHERE key = 'max_active_games'");
+      const settingsRes = await client.query(
+        "SELECT value FROM global_settings WHERE key = 'max_active_games'",
+      );
       if (settingsRes.rows.length > 0) {
         maxGamesLimit = parseInt(settingsRes.rows[0].value);
         // 回写缓存
-        await redisClient.set('global_settings:max_active_games', maxGamesLimit.toString());
+        await redisClient.set(
+          "global_settings:max_active_games",
+          maxGamesLimit.toString(),
+        );
       }
     }
 
@@ -157,7 +165,9 @@ exports.createGame = async (req, res) => {
       [userId],
     );
     if (parseInt(countRes.rows[0].count) >= maxGamesLimit) {
-      return res.status(403).json({ error: `您同时开启的对局数已达 ${maxGamesLimit} 局上限` });
+      return res
+        .status(403)
+        .json({ error: `您同时开启的对局数已达 ${maxGamesLimit} 局上限` });
     }
 
     const secretCode = isPublic ? null : generateSecretCode();

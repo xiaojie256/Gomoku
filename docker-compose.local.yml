@@ -1,0 +1,16 @@
+version: '3.8'  
+services:  
+  postgres_local:  
+    image: postgres:15  
+    container_name: gomoku_postgres_local  
+    environment:  
+      POSTGRES_USER: gomoku_user  
+      POSTGRES_PASSWORD: gomoku_password  
+      POSTGRES_DB: gomoku_db  
+    ports:  
+      - "5432:5432"  
+  redis_local:  
+    image: redis:7-alpine  
+    container_name: gomoku_redis_local  
+    ports:  
+      - "6379:6379"  

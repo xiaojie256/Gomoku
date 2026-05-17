@@ -6,6 +6,7 @@ const { requireAdmin } = require("../middlewares/admin");
 
 // 用户管理
 router.get("/users", authenticateToken, requireAdmin, adminController.getAllUsers);
+router.get("/users/:userId", authenticateToken, requireAdmin, adminController.getUserById);
 router.put("/users/:userId/admin", authenticateToken, requireAdmin, adminController.setUserAdmin);
 router.delete("/users/:userId", authenticateToken, requireAdmin, adminController.deleteUser);
 

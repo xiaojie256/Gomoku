@@ -109,6 +109,27 @@ exports.deleteGame = async (req, res) => {
   }
 };
 
+// 获取单个用户信息
+exports.getUserById = async (req, res) => {
+  const { userId } = req.params;
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      "SELECT id, username, is_admin, created_at FROM users WHERE id = $1",
+      [userId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "用户不存在" });
+    }
+    res.json({ success: true, user: result.rows[0] });
+  } catch (err) {
+    console.error("获取用户信息失败:", err);
+    res.status(500).json({ error: "获取用户信息失败" });
+  } finally {
+    client.release();
+  }
+};
+
 // 获取系统统计信息
 exports.getStats = async (req, res) => {
   const client = await pool.connect();

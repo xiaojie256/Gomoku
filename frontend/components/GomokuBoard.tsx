@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { getOrCreateUserId } from '@/utils/identity';
 
 const BOARD_SIZE = 15;
 const CELL_SIZE = 40;
@@ -23,7 +24,11 @@ interface BoardState {
   moveHistory: MoveRecord[]; // 记录落子历史用以渲染序号
 }
 
-export default function GomokuBoard() {
+interface GomokuBoardProps {
+  boardId: number;
+}
+
+export default function GomokuBoard({ boardId }: GomokuBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [boardState, setBoardState] = useState<BoardState>({
     board: Array(225).fill(0),
@@ -32,7 +37,63 @@ export default function GomokuBoard() {
     winner: null,
     moveHistory: [],
   });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<number>(0);
+
+  // 1. 初始化 UserId 与拉取历史数据
+  useEffect(() => {
+    setUserId(getOrCreateUserId());
+
+    const fetchGameData = async () => {
+      try {
+        const res = await fetch(`/api/game/${boardId}`);
+        if (!res.ok) throw new Error('对局不存在或服务器异常');
+        const data = await res.json();
+
+        if (data.success) {
+          const newBoard = Array(225).fill(0);
+          
+          // 遍历历史记录还原一维数组
+          data.moves.forEach((move: MoveRecord) => {
+            newBoard[move.y * 15 + move.x] = move.player;
+          });
+
+          // 推算下一个落子方
+          const lastMove = data.moves[data.moves.length - 1];
+          const nextPlayer = lastMove ? (lastMove.player === 1 ? 2 : 1) : 1;
+
+          // 映射主表状态
+          let currentGameState: GameState = 0;
+          let currentWinner: Player | null = null;
+          
+          if (data.board.status === 'finished') {
+            currentGameState = 1;
+            // 依据最后一子判定赢家身份，规避 userId 直接比对的复杂性
+            currentWinner = lastMove.player; 
+          } else if (data.board.status === 'draw') {
+            currentGameState = -1;
+          }
+
+          setBoardState({
+            board: newBoard,
+            currentPlayer: nextPlayer as Player,
+            gameState: currentGameState,
+            winner: currentWinner,
+            moveHistory: data.moves,
+          });
+        }
+      } catch (error) {
+        console.error('拉取棋局失败:', error);
+        alert('无法加载棋局数据，请返回大厅');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (boardId) {
+      fetchGameData();
+    }
+  }, [boardId]);
 
   // 绘制棋盘与棋子
   const drawBoard = useCallback(() => {
@@ -108,7 +169,7 @@ export default function GomokuBoard() {
 
   // 处理落子点击
   const handleCanvasClick = async (event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (boardState.gameState !== 0 || isLoading) return;
+    if (boardState.gameState !== 0 || isLoading || !userId) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -128,13 +189,12 @@ export default function GomokuBoard() {
     setIsLoading(true);
 
     try {
-      // 【核心修复】boardId 改为数字 1，userId 改为数字对齐 Postgres INT 类型
       const response = await fetch('/api/game/move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          boardId: 1, 
-          userId: 99, 
+          boardId: boardId,
+          userId: userId,
           x: gridX,
           y: gridY,
           player: boardState.currentPlayer,
@@ -142,7 +202,10 @@ export default function GomokuBoard() {
         }),
       });
 
-      if (!response.ok) throw new Error('后端返回异常状态');
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || '后端返回异常状态');
+      }
 
       const data = await response.json();
 
@@ -158,9 +221,9 @@ export default function GomokuBoard() {
         winner: data.gameState === 1 ? boardState.currentPlayer : null,
         moveHistory: [...boardState.moveHistory, newMove],
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('落子错误:', error);
-      alert('落子失败，请确认后端 Node 端口已开启且数据库配置正确');
+      alert(`落子失败: ${error.message}`);
     } finally {
       setIsLoading(false);
     }

@@ -4,25 +4,40 @@ import GomokuBoard from '@/components/GomokuBoard';
 import { useRouter } from 'next/navigation';
 
 export default function BoardPage({ params }: { params: { id: string } }) {
-    const router = useRouter();
-    const boardId = parseInt(params.id, 10);
-    
-    return (
-        <main className="min-h-screen bg-gray-100 flex flex-col items-center py-10">
-            <div className="w-full max-w-3xl flex justify-between items-center mb-6 px-4">
-                <h1 className="text-2xl font-bold text-gray-800">对局 #{boardId}</h1>
-                <button 
-                    onClick={() => router.push('/')}
-                    className="px-4 py-2 bg-white text-gray-600 rounded-lg shadow-sm hover:bg-gray-50"
-                >
-                    返回大厅
-                </button>
+  const router = useRouter();
+  const boardId = parseInt(params.id, 10);
+
+  return (
+    <main className="board-shell">
+      <div className="page-container">
+        <div className="board-header">
+          <div>
+            <p className="headline-tag">对局页面</p>
+            <h1 className="page-title">对局 #{boardId}</h1>
+            <p className="page-subtitle">棋局数据来自真实后端存储，落子记录会同步保存。</p>
+          </div>
+          <button className="btn btn-tertiary" onClick={() => router.push('/')}>
+            返回大厅
+          </button>
+        </div>
+
+        <div className="board-panel">
+          <div className="board-info-card">
+            <div className="info-item">
+              <span className="info-label">棋局编号</span>
+              <span className="info-value">#{boardId}</span>
             </div>
-            
-            <div className="bg-white rounded-2xl shadow-xl p-8">
-                {/* 传入真实的 boardId */}
-                <GomokuBoard boardId={boardId} />
+            <div className="info-item">
+              <span className="info-label">存储方式</span>
+              <span className="info-value">PostgreSQL + Redis</span>
             </div>
-        </main>
-    );
+          </div>
+
+          <div className="board-widget">
+            <GomokuBoard boardId={boardId} />
+          </div>
+        </div>
+      </div>
+    </main>
+  );
 }

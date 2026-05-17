@@ -40,60 +40,100 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<number>(0);
 
-  // 1. 初始化 UserId 与拉取历史数据
+  // 1. 封装核心数据拉取与对比机制 (避免不必要的 Canvas 重绘)
+  const fetchGameData = useCallback(async (showLoading = false) => {
+    if (showLoading) setIsLoading(true);
+    try {
+      const res = await fetch(`/api/game/${boardId}`);
+      if (!res.ok) throw new Error('对局不存在或服务器异常');
+      const data = await res.json();
+
+      if (data.success) {
+        // 如果后端Moves长度和本地一致，说明盘面未变，放弃更新，节省CPU
+        if (data.moves.length === boardState.moveHistory.length) {
+          return;
+        }
+
+        const newBoard = Array(225).fill(0);
+        data.moves.forEach((move: MoveRecord) => {
+          newBoard[move.y * 15 + move.x] = move.player;
+        });
+
+        const lastMove = data.moves[data.moves.length - 1];
+        const nextPlayer = lastMove ? (lastMove.player === 1 ? 2 : 1) : 1;
+
+        let currentGameState: GameState = 0;
+        let currentWinner: Player | null = null;
+        
+        if (data.board.status === 'finished') {
+          currentGameState = 1;
+          currentWinner = lastMove ? lastMove.player : null; 
+        } else if (data.board.status === 'draw') {
+          currentGameState = -1;
+        }
+
+        setBoardState({
+          board: newBoard,
+          currentPlayer: nextPlayer as Player,
+          gameState: currentGameState,
+          winner: currentWinner,
+          moveHistory: data.moves,
+        });
+      }
+    } catch (error) {
+      console.error('自动同步盘面异常:', error);
+    } finally {
+      if (showLoading) setIsLoading(false);
+    }
+  }, [boardId, boardState.moveHistory.length]);
+
+  // 2. 挂载智能可见性调度器 (Smart Polling Scheduler)
   useEffect(() => {
     setUserId(getOrCreateUserId());
+    
+    // 首次进入强制开启 Loading
+    fetchGameData(true);
 
-    const fetchGameData = async () => {
-      try {
-        const res = await fetch(`/api/game/${boardId}`);
-        if (!res.ok) throw new Error('对局不存在或服务器异常');
-        const data = await res.json();
+    let timerId: NodeJS.Timeout | null = null;
 
-        if (data.success) {
-          const newBoard = Array(225).fill(0);
-          
-          // 遍历历史记录还原一维数组
-          data.moves.forEach((move: MoveRecord) => {
-            newBoard[move.y * 15 + move.x] = move.player;
-          });
-
-          // 推算下一个落子方
-          const lastMove = data.moves[data.moves.length - 1];
-          const nextPlayer = lastMove ? (lastMove.player === 1 ? 2 : 1) : 1;
-
-          // 映射主表状态
-          let currentGameState: GameState = 0;
-          let currentWinner: Player | null = null;
-          
-          if (data.board.status === 'finished') {
-            currentGameState = 1;
-            // 依据最后一子判定赢家身份，规避 userId 直接比对的复杂性
-            currentWinner = lastMove.player; 
-          } else if (data.board.status === 'draw') {
-            currentGameState = -1;
-          }
-
-          setBoardState({
-            board: newBoard,
-            currentPlayer: nextPlayer as Player,
-            gameState: currentGameState,
-            winner: currentWinner,
-            moveHistory: data.moves,
-          });
+    const startPolling = () => {
+      if (timerId) clearInterval(timerId);
+      // 慢节奏对局，设定 6 秒智能局部轻轮询即可
+      timerId = setInterval(() => {
+        // 仅在游戏未结束、非加载中、且页面处于激活可见状态时才请求后端
+        if (boardState.gameState === 0 && document.visibilityState === 'visible' && !document.hidden) {
+          fetchGameData(false); // 隐式无感刷新
         }
-      } catch (error) {
-        console.error('拉取棋局失败:', error);
-        alert('无法加载棋局数据，请返回大厅');
-      } finally {
-        setIsLoading(false);
+      }, 6000);
+    };
+
+    const stopPolling = () => {
+      if (timerId) {
+        clearInterval(timerId);
+        timerId = null;
       }
     };
 
-    if (boardId) {
-      fetchGameData();
-    }
-  }, [boardId]);
+    // 监听浏览器标签页切换及休眠机制，严防空转对 1.8G 服务器造成多余负载
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchGameData(false); // 回焦时主动拉取一次最新盘面
+        startPolling();
+      } else {
+        stopPolling(); // 标签页切走时立刻断开轮询，腾出服务器 CPU
+      }
+    };
+
+    // 启动轮询并注册监听
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // 销毁时清理，严防前端内存泄漏
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [fetchGameData, boardState.gameState]);
 
   // 绘制棋盘与棋子
   const drawBoard = useCallback(() => {
@@ -244,28 +284,35 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
   }, [drawBoard]);
 
   return (
-    <div className="flex flex-col items-center">
-      <div className="mb-4 flex items-center gap-4">
-        <div className="text-lg font-semibold text-gray-700">
-          当前玩家: {boardState.currentPlayer === 1 ? '黑子' : '白子'}
-        </div>
-        {boardState.gameState !== 0 && (
-          <div className="text-lg font-bold text-red-600">
-            {boardState.gameState === 1 ? `${boardState.winner === 1 ? '黑子' : '白子'} 获胜!` : '和局!'}
+    <div className="gomoku-board-shell">
+      <div className="board-status-row">
+        <div className="board-status-card">
+          <div className="board-status-label">当前玩家</div>
+          <div className={`board-status-value board-status-${boardState.currentPlayer}`}>
+            {boardState.currentPlayer === 1 ? '黑子' : '白子'}
           </div>
-        )}
+        </div>
+
+        <div className="board-status-card">
+          <div className="board-status-label">当前状态</div>
+          <div className={`board-status-value board-result-${boardState.gameState}`}>
+            {boardState.gameState === 0 ? '进行中' : boardState.gameState === 1 ? `${boardState.winner === 1 ? '黑子' : '白子'} 获胜` : '和局'}
+          </div>
+        </div>
       </div>
 
-      <canvas
-        ref={canvasRef}
-        width={BOARD_PADDING * 2 + (BOARD_SIZE - 1) * CELL_SIZE}
-        height={BOARD_PADDING * 2 + (BOARD_SIZE - 1) * CELL_SIZE}
-        onClick={handleCanvasClick}
-        className="border-4 border-amber-900 rounded cursor-pointer shadow-lg"
-        style={{ cursor: isLoading ? 'wait' : 'pointer' }}
-      />
+      <div className="canvas-wrapper">
+        <canvas
+          ref={canvasRef}
+          width={BOARD_PADDING * 2 + (BOARD_SIZE - 1) * CELL_SIZE}
+          height={BOARD_PADDING * 2 + (BOARD_SIZE - 1) * CELL_SIZE}
+          onClick={handleCanvasClick}
+          className="gomoku-canvas"
+          style={{ cursor: isLoading ? 'wait' : 'pointer' }}
+        />
+      </div>
 
-      <div className="mt-4 flex gap-4">
+      <div className="board-footer">
         {boardState.gameState !== 0 && (
           <button
             onClick={resetGame}
@@ -274,7 +321,7 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
             重新开始
           </button>
         )}
-        {isLoading && <div className="text-gray-600 font-medium">正在处理...</div>}
+        {isLoading && <div className="board-loading">正在处理...</div>}
       </div>
     </div>
   );

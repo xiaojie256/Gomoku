@@ -1,25 +1,54 @@
-version: '3.8'  
-services:  
-  postgres_local:  
-    image: postgres:15  
-    container_name: gomoku_postgres_local  
-    environment:  
-      POSTGRES_USER: gomoku_user  
-      POSTGRES_PASSWORD: gomoku_password  
-      POSTGRES_DB: gomoku_db  
-    ports:  
-      - "5435:5432"
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: gomoku_postgres
+    environment:
+      POSTGRES_USER: gomoku_user
+      POSTGRES_PASSWORD: gomoku_password
+      POSTGRES_DB: gomoku_db
     volumes:
-      - pgdata:/var/lib/postgresql/data  # 持久化数据库数据
-      
-  redis_local:  
-    image: redis:7-alpine  
-    container_name: gomoku_redis_local  
-    ports:  
-      - "6385:6379"
+      - pgdata:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    container_name: gomoku_redis
     volumes:
-      - redisdata:/data  # 持久化 Redis 数据
+      - redisdata:/data
+    restart: always
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gomoku_backend
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=gomoku_user
+      - DB_PASSWORD=gomoku_password
+      - DB_NAME=gomoku_db
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=gomoku_prod_secret_key_change_me
+    depends_on:
+      - postgres
+      - redis
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: gomoku_frontend
+    environment:
+      - BACKEND_URL=http://backend:4125
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: always
 
 volumes:
   pgdata:
-  redisdata:  
+  redisdata:

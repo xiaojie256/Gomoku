@@ -1,20 +1,21 @@
 // server.js
+require('dotenv').config(); // 引入环境变量支持
 const express = require("express");
+const cors = require("cors");
 const app = express();
 const gameRoutes = require("./routes/game");
 const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
 
-app.use(express.json()); // 解析 JSON 请求体
+app.use(cors()); // 允许跨域请求
+app.use(express.json()); 
 
-// 挂载身份认证接口
 app.use("/api/auth", authRoutes);
-// 挂载落子 API
 app.use("/api/game", gameRoutes);
-// 挂载管理后台 API
 app.use("/api/admin", adminRoutes);
 
-const PORT = 3000;
+// 使用环境变量端口，如果未设置则使用 4125（避开常见的 3000/8080）
+const PORT = process.env.PORT || 4125;
 app.listen(PORT, () => {
-  console.log(`本地开发服务器已启动: http://localhost:${PORT}`);
+  console.log(`🚀 后端核心服务已启动: http://localhost:${PORT}`);
 });

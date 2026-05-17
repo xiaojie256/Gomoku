@@ -8,9 +8,9 @@ services:
       POSTGRES_PASSWORD: gomoku_password  
       POSTGRES_DB: gomoku_db  
     ports:  
-      - "5432:5432"  
+      - "5435:5432" # 左侧为宿主机端口，右侧为容器内端口
   redis_local:  
     image: redis:7-alpine  
     container_name: gomoku_redis_local  
     ports:  
-      - "6379:6379"  
+      - "6385:6379"  

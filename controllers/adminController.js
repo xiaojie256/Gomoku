@@ -5,7 +5,7 @@ exports.getAllUsers = async (req, res) => {
   const client = await pool.connect();
   try {
     const result = await client.query(
-      "SELECT id, username, is_admin, created_at FROM users ORDER BY created_at DESC"
+      "SELECT id, username, is_admin, created_at FROM users ORDER BY created_at DESC",
     );
     res.json({ success: true, users: result.rows });
   } catch (err) {
@@ -20,13 +20,16 @@ exports.getAllUsers = async (req, res) => {
 exports.setUserAdmin = async (req, res) => {
   // 支持通过 URL param 或请求 body 提交 userId
   const userId = req.params.userId || req.body.userId;
-  const isAdmin = typeof req.body.isAdmin !== 'undefined' ? req.body.isAdmin : req.query.isAdmin === 'true';
+  const isAdmin =
+    typeof req.body.isAdmin !== "undefined"
+      ? req.body.isAdmin
+      : req.query.isAdmin === "true";
   const client = await pool.connect();
   try {
-    await client.query(
-      "UPDATE users SET is_admin = $1 WHERE id = $2",
-      [isAdmin, userId]
-    );
+    await client.query("UPDATE users SET is_admin = $1 WHERE id = $2", [
+      isAdmin,
+      userId,
+    ]);
     res.json({ success: true });
   } catch (err) {
     console.error("设置管理员权限失败:", err);
@@ -42,17 +45,23 @@ exports.deleteUser = async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    
+
     // 删除用户相关的落子记录
     await client.query("DELETE FROM moves WHERE user_id = $1", [userId]);
-    
+
     // 将用户作为房主或白方的棋局重置
-    await client.query("UPDATE boards SET black_user_id = NULL WHERE black_user_id = $1", [userId]);
-    await client.query("UPDATE boards SET white_user_id = NULL WHERE white_user_id = $1", [userId]);
-    
+    await client.query(
+      "UPDATE boards SET black_user_id = NULL WHERE black_user_id = $1",
+      [userId],
+    );
+    await client.query(
+      "UPDATE boards SET white_user_id = NULL WHERE white_user_id = $1",
+      [userId],
+    );
+
     // 删除用户
     await client.query("DELETE FROM users WHERE id = $1", [userId]);
-    
+
     await client.query("COMMIT");
     res.json({ success: true });
   } catch (err) {
@@ -77,7 +86,7 @@ exports.getAllGames = async (req, res) => {
        LEFT JOIN users u1 ON b.black_user_id = u1.id
        LEFT JOIN users u2 ON b.white_user_id = u2.id
        ORDER BY b.created_at DESC
-       LIMIT 100`
+       LIMIT 100`,
     );
     res.json({ success: true, games: result.rows });
   } catch (err) {
@@ -94,10 +103,10 @@ exports.deleteGame = async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    
+
     await client.query("DELETE FROM moves WHERE board_id = $1", [gameId]);
     await client.query("DELETE FROM boards WHERE id = $1", [gameId]);
-    
+
     await client.query("COMMIT");
     res.json({ success: true });
   } catch (err) {
@@ -116,7 +125,7 @@ exports.getUserById = async (req, res) => {
   try {
     const result = await client.query(
       "SELECT id, username, is_admin, created_at FROM users WHERE id = $1",
-      [userId]
+      [userId],
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "用户不存在" });
@@ -136,9 +145,13 @@ exports.getStats = async (req, res) => {
   try {
     const userCount = await client.query("SELECT COUNT(*) FROM users");
     const gameCount = await client.query("SELECT COUNT(*) FROM boards");
-    const activeGameCount = await client.query("SELECT COUNT(*) FROM boards WHERE status = 'playing'");
-    const finishedGameCount = await client.query("SELECT COUNT(*) FROM boards WHERE status = 'finished'");
-    
+    const activeGameCount = await client.query(
+      "SELECT COUNT(*) FROM boards WHERE status = 'playing'",
+    );
+    const finishedGameCount = await client.query(
+      "SELECT COUNT(*) FROM boards WHERE status = 'finished'",
+    );
+
     res.json({
       success: true,
       stats: {
@@ -146,11 +159,51 @@ exports.getStats = async (req, res) => {
         totalGames: parseInt(gameCount.rows[0].count),
         activeGames: parseInt(activeGameCount.rows[0].count),
         finishedGames: parseInt(finishedGameCount.rows[0].count),
-      }
+      },
     });
   } catch (err) {
     console.error("获取统计信息失败:", err);
     res.status(500).json({ error: "获取统计信息失败" });
+  } finally {
+    client.release();
+  }
+};
+
+// 获取系统全局设置
+exports.getSettings = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const result = await client.query("SELECT key, value FROM global_settings");
+    const settings = {};
+    result.rows.forEach(row => {
+      settings[row.key] = row.value;
+    });
+    res.json({ success: true, settings });
+  } catch (err) {
+    console.error("获取设置失败:", err);
+    res.status(500).json({ error: "获取设置失败" });
+  } finally {
+    client.release();
+  }
+};
+
+// 更新系统全局设置
+exports.updateSetting = async (req, res) => {
+  const { key, value } = req.body;
+  if (!key || value === undefined) {
+    return res.status(400).json({ error: "缺少参数" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query(
+      "INSERT INTO global_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP",
+      [key, String(value)]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error("更新设置失败:", err);
+    res.status(500).json({ error: "更新设置失败" });
   } finally {
     client.release();
   }

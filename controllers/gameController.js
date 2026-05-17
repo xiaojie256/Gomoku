@@ -119,7 +119,8 @@ exports.submitMove = async (req, res) => {
     res.status(403).json({ error: err.message || "异常" });
   } finally {
     if (pointer) wasmModule._free(pointer);
-    client.release();
+    // 确保无论如何事务都会被关闭，防止连接池泄漏
+    client.release(); 
     await redisClient.del(lockKey);
   }
 };
@@ -137,21 +138,30 @@ exports.createGame = async (req, res) => {
 
   const client = await pool.connect();
   try {
-    // 检查：每个用户最多开 5 个进行中的棋局
+    // ⬇️ 新增：动态读取全局限制阈值，如果没取到则默认 fallback 为 5
+    const settingsRes = await client.query("SELECT value FROM global_settings WHERE key = 'max_active_games'");
+    const maxGamesLimit = settingsRes.rows.length > 0 ? parseInt(settingsRes.rows[0].value) : 5;
+
+    // ⬇️ 修改：检查进行中的棋局是否超过动态阈值
     const countRes = await client.query(
       "SELECT count(*) FROM boards WHERE black_user_id = $1 AND status = 'playing'",
       [userId],
     );
-    if (parseInt(countRes.rows[0].count) >= 5) {
-      return res.status(403).json({ error: "您同时开启的对局数已达 5 局上限" });
+    if (parseInt(countRes.rows[0].count) >= maxGamesLimit) {
+      return res.status(403).json({ error: `您同时开启的对局数已达 ${maxGamesLimit} 局上限` });
     }
 
     const secretCode = isPublic ? null : generateSecretCode();
     const result = await client.query(
-      const board = result.rows[0];
-      // 不在暗码验证环节自动分配白方，保留首个实际落子时的 "先落子得白" 机制。
-      // 仅返回可加入的棋盘 ID，实际身份在第一次落子时由后端在事务内确定并绑定。
-      res.json({ success: true, boardId: board.id });
+      "INSERT INTO boards (black_user_id, is_public, secret_code, status) VALUES ($1, $2, $3, 'playing') RETURNING id",
+      [userId, isPublic, secretCode],
+    );
+    const board = result.rows[0];
+    // 不在暗码验证环节自动分配白方，保留首个实际落子时的 "先落子得白" 机制。
+    // 仅返回可加入的棋盘 ID，实际身份在第一次落子时由后端在事务内确定并绑定。
+    res.json({ success: true, boardId: board.id });
+  } catch (err) {
+    console.error("建局失败:", err);
     res.status(500).json({ error: "建局事务失败" });
   } finally {
     client.release();

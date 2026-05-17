@@ -30,7 +30,7 @@ exports.register = async (req, res) => {
       return res.status(409).json({ error: "该用户名已被占用" });
     }
 
-    const passwordHash = bcrypt.hashSync(password, 10);
+    const passwordHash = await bcrypt.hash(password, 10);
     const result = await client.query(
       "INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username",
       [username, passwordHash],
@@ -68,7 +68,7 @@ exports.login = async (req, res) => {
     }
 
     const user = result.rows[0];
-    const valid = bcrypt.compareSync(password, user.password_hash);
+    const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
       return res.status(401).json({ error: "用户名或密码错误" });
     }

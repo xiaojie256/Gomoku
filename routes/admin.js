@@ -5,16 +5,50 @@ const { authenticateToken } = require("../middlewares/auth");
 const { requireAdmin } = require("../middlewares/admin");
 
 // 用户管理
-router.get("/users", authenticateToken, requireAdmin, adminController.getAllUsers);
-router.get("/users/:userId", authenticateToken, requireAdmin, adminController.getUserById);
-router.put("/users/:userId/admin", authenticateToken, requireAdmin, adminController.setUserAdmin);
-router.delete("/users/:userId", authenticateToken, requireAdmin, adminController.deleteUser);
+router.get(
+  "/users",
+  authenticateToken,
+  requireAdmin,
+  adminController.getAllUsers,
+);
+router.get(
+  "/users/:userId",
+  authenticateToken,
+  requireAdmin,
+  adminController.getUserById,
+);
+router.put(
+  "/users/:userId/admin",
+  authenticateToken,
+  requireAdmin,
+  adminController.setUserAdmin,
+);
+router.delete(
+  "/users/:userId",
+  authenticateToken,
+  requireAdmin,
+  adminController.deleteUser,
+);
 
 // 对局管理
-router.get("/games", authenticateToken, requireAdmin, adminController.getAllGames);
-router.delete("/games/:gameId", authenticateToken, requireAdmin, adminController.deleteGame);
+router.get(
+  "/games",
+  authenticateToken,
+  requireAdmin,
+  adminController.getAllGames,
+);
+router.delete(
+  "/games/:gameId",
+  authenticateToken,
+  requireAdmin,
+  adminController.deleteGame,
+);
 
 // 系统统计
 router.get("/stats", authenticateToken, requireAdmin, adminController.getStats);
+
+// 系统设置管理
+router.get("/settings", authenticateToken, requireAdmin, adminController.getSettings);
+router.put("/settings", authenticateToken, requireAdmin, adminController.updateSetting);
 
 module.exports = router;

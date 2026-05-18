@@ -54,6 +54,7 @@ export default function AdminPage() {
   const [maxActiveGames, setMaxActiveGames] = useState<number>(5);
   const [maxUsers, setMaxUsers] = useState<number>(100);
   const [boardLifetimeHours, setBoardLifetimeHours] = useState<number>(2);
+  const [gameTtlHours, setGameTtlHours] = useState<number>(2);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [newMaxUsers, setNewMaxUsers] = useState<number | string>('');
   const [pwdCurrent, setPwdCurrent] = useState('');
@@ -118,6 +119,7 @@ export default function AdminPage() {
         if (configData.max_active_games) setMaxActiveGames(configData.max_active_games);
         if (configData.max_users) setMaxUsers(configData.max_users);
         if (configData.board_lifetime_hours) setBoardLifetimeHours(configData.board_lifetime_hours);
+        if (configData.game_ttl_hours) setGameTtlHours(configData.game_ttl_hours);
       }
     } catch (err) {
       setError('加载统计信息失败');
@@ -414,6 +416,30 @@ export default function AdminPage() {
                       </div>
                       <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '12px' }}>
                         修改后即刻更新 Redis 与 PostgreSQL。当注册总数达到此阈值时，自动闭站触发物理熔断，停止新用户注册。
+                      </p>
+                    </div>
+
+                    {/* 动态生命周期控制 (TTL) */}
+                    <div className="panel" style={{ padding: '24px' }}>
+                      <label className="block text-gray-400 text-sm mb-3 font-medium">棋局默认存活时长 (小时)</label>
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <input
+                          type="number" min="0.5" max="72" step="0.5"
+                          value={gameTtlHours}
+                          onChange={(e) => setGameTtlHours(parseFloat(e.target.value) || 2)}
+                          className="form-input"
+                        />
+                        <button
+                          onClick={() => handleSaveSetting('game_ttl_hours', gameTtlHours)}
+                          disabled={isSavingSettings}
+                          className="btn btn-primary"
+                          style={{ whiteSpace: 'nowrap' }}
+                        >
+                          {isSavingSettings ? '提交中...' : '保存修改'}
+                        </button>
+                      </div>
+                      <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '12px' }}>
+                        修改后将作为新建对局的默认 TTL。超时后该局将触发物理销毁保护，防止"僵尸局"无限期锁定资源。
                       </p>
                     </div>
                   </div>

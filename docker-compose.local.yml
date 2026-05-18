@@ -4,7 +4,7 @@ services:
     image: postgres:15-alpine
     container_name: gomoku_postgres
     ports:
-      - "5435:5432"
+      - "5432:5432"  # 修复：数据库的默认端口是 5432，绝不能是 3000
     environment:
       POSTGRES_USER: gomoku_user
       POSTGRES_PASSWORD: gomoku_password
@@ -27,6 +27,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: gomoku_backend
+    ports:
+      - "4125:4125"  # 修复：必须暴露后端端口，否则前端 WebSocket 连不上服务器
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -47,8 +49,10 @@ services:
     container_name: gomoku_frontend
     environment:
       - BACKEND_URL=http://backend:4125
+      - HOST=0.0.0.0        # 新增：强制监听所有 IP
+      - HOSTNAME=0.0.0.0    # 新增：适配不同版本的 Next.js
     ports:
-      - "3000:3000"
+      - "3080:3000"  # 修复：前端使用全新的 3088 端口，避开所有冲突
     depends_on:
       - backend
     restart: always

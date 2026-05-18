@@ -1,0 +1,103 @@
+# 生产环境 Docker Compose
+# 使用方法：
+#   1. 复制 .env.example 为 .env 并填写所有变量
+#   2. docker compose up -d --build
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: gomoku_postgres
+    env_file: ./backend/.env
+    environment:
+      # 使用与 backend/.env 中一致的变量名，postgres 镜像会读取这些变量
+      POSTGRES_USER: gomoku_user
+      POSTGRES_DB: gomoku_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gomoku_user -d gomoku_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - gomoku_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: gomoku_redis
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - gomoku_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gomoku_backend
+    env_file: ./backend/.env
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "4125:4125"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4125/api/game/lobby || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - gomoku_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # 构建时使用内部网络地址
+        - BACKEND_URL=http://backend:4125
+    container_name: gomoku_frontend
+    environment:
+      - NODE_ENV=production
+      # 运行时后端地址（通过 nginx 反向代理）
+      - BACKEND_URL=http://backend:4125
+    ports:
+      - "3000:3000"
+    # 注意：运行时前端需要后端，但构建阶段可以并行
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - gomoku_net
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  gomoku_net:
+    driver: bridge

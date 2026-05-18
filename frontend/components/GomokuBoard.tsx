@@ -107,7 +107,6 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
     loadCurrentUser();
     fetchGameData(true);
 
-    // WebSocket 连接（使用相对路径自动适配当前域名和协议）
     const socket: Socket = io('/', { path: '/socket.io' });
 
     socket.on('connect', () => {

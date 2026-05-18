@@ -1,0 +1,12 @@
+node_modules
+.env
+.env.*
+frontend
+.git
+.gitignore
+*.log
+Makefile
+DEPLOYMENT_GUIDE.md
+NGINX_WEBSOCKET_CONFIG.md
+README.md
+docker-compose*.yml

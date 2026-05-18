@@ -15,7 +15,7 @@ const server = http.createServer(app);
 // 2. 初始化 Socket.io，配置跨域
 const io = new Server(server, {
   cors: {
-    origin: "*", // 建议替换为你的前端域名，如 "https://move.xiaojie256.top"
+    origin: ["https://gomoku.xiaojie256.top", "http://localhost:3000", "http://localhost:4125"],
     methods: ["GET", "POST"]
   }
 });

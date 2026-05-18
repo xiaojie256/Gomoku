@@ -7,14 +7,15 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: gomoku_postgres
+    env_file: ./backend/.env
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+      # 使用与 backend/.env 中一致的变量名，postgres 镜像会读取这些变量
+      POSTGRES_USER: gomoku_user
+      POSTGRES_DB: gomoku_db
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U gomoku_user -d gomoku_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -74,16 +75,16 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
+        # 构建时使用内部网络地址
         - BACKEND_URL=http://backend:4125
     container_name: gomoku_frontend
     environment:
       - NODE_ENV=production
+      # 运行时后端地址（通过 nginx 反向代理）
       - BACKEND_URL=http://backend:4125
     ports:
       - "3000:3000"
-    depends_on:
-      backend:
-        condition: service_started
+    # 注意：运行时前端需要后端，但构建阶段可以并行
     restart: unless-stopped
     logging:
       driver: "json-file"

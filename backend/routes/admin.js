@@ -55,4 +55,7 @@ router.put("/settings", authenticateToken, requireAdmin, adminController.updateS
 router.get("/config", authenticateToken, requireAdmin, adminController.getConfig);
 router.post("/config", authenticateToken, requireAdmin, adminController.updateConfig);
 
+// 修改管理员密码
+router.post("/change-password", authenticateToken, requireAdmin, adminController.changePassword);
+
 module.exports = router;

@@ -211,6 +211,29 @@ exports.getBoardsAdmin = async (req, res) => {
   }
 };
 
+exports.changePassword = async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: "缺少参数" });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: "新密码至少 6 位" });
+  }
+  try {
+    const bcrypt = require("bcryptjs");
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user) return res.status(404).json({ error: "用户不存在" });
+    const valid = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!valid) return res.status(401).json({ error: "当前密码错误" });
+    const hash = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({ where: { id: req.user.id }, data: { password_hash: hash } });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("修改密码失败:", err);
+    res.status(500).json({ error: "修改密码失败" });
+  }
+};
+
 exports.deleteBoard = async (req, res) => {
   const boardId = parseInt(req.params.boardId);
   try {

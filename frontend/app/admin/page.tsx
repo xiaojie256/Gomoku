@@ -56,6 +56,11 @@ export default function AdminPage() {
   const [boardLifetimeHours, setBoardLifetimeHours] = useState<number>(2);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [newMaxUsers, setNewMaxUsers] = useState<number | string>('');
+  const [pwdCurrent, setPwdCurrent] = useState('');
+  const [pwdNew, setPwdNew] = useState('');
+  const [pwdConfirm, setPwdConfirm] = useState('');
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdMsg, setPwdMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'games'>('stats');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -180,6 +185,42 @@ export default function AdminPage() {
       alert('请求物理异常');
     } finally {
       setIsSavingSettings(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!pwdCurrent || !pwdNew || !pwdConfirm) {
+      setPwdMsg({ ok: false, text: '请填写所有字段' });
+      return;
+    }
+    if (pwdNew !== pwdConfirm) {
+      setPwdMsg({ ok: false, text: '两次新密码不一致' });
+      return;
+    }
+    if (pwdNew.length < 6) {
+      setPwdMsg({ ok: false, text: '新密码至少 6 位' });
+      return;
+    }
+    setPwdLoading(true);
+    setPwdMsg(null);
+    try {
+      const res = await fetchWithAuth('/api/admin/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword: pwdCurrent, newPassword: pwdNew }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPwdMsg({ ok: true, text: '密码修改成功' });
+        setPwdCurrent('');
+        setPwdNew('');
+        setPwdConfirm('');
+      } else {
+        setPwdMsg({ ok: false, text: data.error || '修改失败' });
+      }
+    } catch {
+      setPwdMsg({ ok: false, text: '网络异常' });
+    } finally {
+      setPwdLoading(false);
     }
   };
 
@@ -374,6 +415,64 @@ export default function AdminPage() {
                       <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '12px' }}>
                         修改后即刻更新 Redis 与 PostgreSQL。当注册总数达到此阈值时，自动闭站触发物理熔断，停止新用户注册。
                       </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 修改密码面板 */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '32px', marginTop: '32px' }}>
+                  <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: '#f8f9fb' }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    修改管理员密码
+                  </h2>
+                  <div className="panel" style={{ padding: '24px', maxWidth: '480px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div>
+                        <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>当前密码</label>
+                        <input
+                          type="password"
+                          value={pwdCurrent}
+                          onChange={(e) => setPwdCurrent(e.target.value)}
+                          placeholder="输入当前密码"
+                          className="form-input"
+                          style={{ width: '100%' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>新密码</label>
+                        <input
+                          type="password"
+                          value={pwdNew}
+                          onChange={(e) => setPwdNew(e.target.value)}
+                          placeholder="至少 6 位"
+                          className="form-input"
+                          style={{ width: '100%' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>确认新密码</label>
+                        <input
+                          type="password"
+                          value={pwdConfirm}
+                          onChange={(e) => setPwdConfirm(e.target.value)}
+                          placeholder="再次输入新密码"
+                          className="form-input"
+                          style={{ width: '100%' }}
+                        />
+                      </div>
+                      {pwdMsg && (
+                        <p style={{ fontSize: '0.8rem', color: pwdMsg.ok ? '#10b981' : '#ef4444', margin: 0 }}>
+                          {pwdMsg.ok ? '✅ ' : '❌ '}{pwdMsg.text}
+                        </p>
+                      )}
+                      <button
+                        onClick={handleChangePassword}
+                        disabled={pwdLoading}
+                        className="btn btn-primary"
+                        style={{ alignSelf: 'flex-start' }}
+                      >
+                        {pwdLoading ? '提交中...' : '确认修改'}
+                      </button>
                     </div>
                   </div>
                 </div>

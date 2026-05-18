@@ -14,7 +14,7 @@ RUN npm config set registry https://registry.npmmirror.com
 
 COPY package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --ignore-scripts
+    npm install --ignore-scripts
 
 COPY . .
 
@@ -29,6 +29,8 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+# 监听所有接口，允许外部访问
+ENV HOSTNAME=0.0.0.0
 
 # 复制 standalone 输出（包含所有静态资源）
 COPY --from=builder /app/.next/standalone ./

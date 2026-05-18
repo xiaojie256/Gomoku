@@ -54,10 +54,14 @@ DB_USER=gomoku_user
 DB_PASSWORD=\$DB_PASS
 DB_NAME=gomoku_db
 DATABASE_URL=postgresql://gomoku_user:\$DB_PASS@postgres:5432/gomoku_db
+# postgres 容器需要的环境变量
+POSTGRES_USER=gomoku_user
+POSTGRES_PASSWORD=\$DB_PASS
+POSTGRES_DB=gomoku_db
 REDIS_URL=redis://redis:6379
 JWT_SECRET=\$JWT_SECRET
 PORT=4125
-CORS_ORIGINS=http://localhost:3000,http://localhost:4125,http://$SERVER_IP:3000,http://$SERVER_IP:4125
+CORS_ORIGINS=http://localhost:3000,http://localhost:4125,http://$SERVER_IP:3000,http://$SERVER_IP:4125,https://yanru529.cn,http://yanru529.cn
 NODE_ENV=production
 ADMIN_USER=admin
 ADMIN_PASS=\$ADMIN_PASS
@@ -110,7 +114,7 @@ else
   docker compose logs backend --tail=20
   exit 1
 fi
-if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+if curl -sf http://localhost:3000/gomoku > /dev/null 2>&1; then
   echo '✅ 前端服务正常'
 fi
 

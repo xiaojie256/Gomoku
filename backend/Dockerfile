@@ -19,7 +19,7 @@ RUN npm config delete proxy 2>/dev/null || true && \
 
 # 先复制 package.json 安装依赖（跳过 postinstall）
 COPY package*.json ./
-RUN npm ci --ignore-scripts
+RUN npm install --ignore-scripts
 
 # 再复制全部代码（包括 prisma/schema.prisma）
 COPY . .

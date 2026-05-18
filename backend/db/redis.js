@@ -1,7 +1,7 @@
 const { createClient } = require('redis');
 require('dotenv').config();
 
-const redisUrl = process.env.REDIS_URL || 'redis://localhost:6385'; // 对应上面 docker-compose 的映射
+const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
 const redisClient = createClient({
     url: redisUrl

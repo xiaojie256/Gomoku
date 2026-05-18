@@ -2,9 +2,11 @@
 
 import GomokuBoard from '@/components/GomokuBoard';
 import Link from 'next/link';
+import { use } from 'react';
 
-export default function BoardPage({ params }: { params: { id: string } }) {
-  const boardId = parseInt(params.id, 10);
+export default function BoardPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const boardId = parseInt(id, 10);
 
   return (
     <main className="board-shell">

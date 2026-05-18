@@ -1,10 +1,38 @@
-FROM node:18-alpine
+# ---- 构建阶段 ----
+FROM node:22-alpine AS builder
 WORKDIR /app
+
+# 清除代理设置
+ENV HTTP_PROXY=""
+ENV HTTPS_PROXY=""
+ENV http_proxy=""
+ENV https_proxy=""
+ENV ALL_PROXY=""
+ENV all_proxy=""
+
 RUN npm config set registry https://registry.npmmirror.com
+
 COPY package*.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --ignore-scripts
+
 COPY . .
-ENV BACKEND_URL=http://backend:4125
-RUN npm run build
+
+ARG BACKEND_URL=http://localhost:4125
+ENV BACKEND_URL=${BACKEND_URL}
+
+RUN --mount=type=cache,target=/app/.next/cache \
+    npm run build
+
+# ---- 运行阶段 ----
+FROM node:22-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# 复制 standalone 输出（包含所有静态资源）
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

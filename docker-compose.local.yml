@@ -1,58 +1,101 @@
-version: '3.8'
+# 本地开发环境 Docker Compose
+# 使用方法：
+#   1. 复制 .env.example 为 .env 并填写变量
+#   2. docker compose -f docker-compose.local.yml up -d --build
+
 services:
   postgres:
-    image: postgres:15-alpine
-    container_name: gomoku_postgres
+    image: postgres:15
+    container_name: gomoku_postgres_local
     ports:
-      - "5435:5432"
+      - "5432:5432"
     environment:
-      POSTGRES_USER: gomoku_user
-      POSTGRES_PASSWORD: gomoku_password
-      POSTGRES_DB: gomoku_db
+      POSTGRES_USER: ${DB_USER:-gomoku_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-gomoku_password}
+      POSTGRES_DB: ${DB_NAME:-gomoku_db}
     volumes:
-      - pgdata:/var/lib/postgresql/data
-    restart: always
+      - pgdata_local:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-gomoku_user} -d ${DB_NAME:-gomoku_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - gomoku_net_local
 
   redis:
     image: redis:7-alpine
-    container_name: gomoku_redis
+    container_name: gomoku_redis_local
     ports:
-      - "6385:6379"
+      - "6379:6379"
     volumes:
-      - redisdata:/data
-    restart: always
+      - redisdata_local:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - gomoku_net_local
 
   backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: gomoku_backend
+      args:
+        - HTTP_PROXY
+        - HTTPS_PROXY
+        - http_proxy
+        - https_proxy
+        - NO_PROXY=*
+    container_name: gomoku_backend_local
+    env_file: ./backend/.env
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_USER=gomoku_user
-      - DB_PASSWORD=gomoku_password
-      - DB_NAME=gomoku_db
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=gomoku_prod_secret_key_change_me
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://${DB_USER:-gomoku_user}:${DB_PASSWORD:-gomoku_password}@postgres:5432/${DB_NAME:-gomoku_db}
+    ports:
+      - "4125:4125"
     depends_on:
-      - postgres
-      - redis
-    restart: always
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - gomoku_net_local
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: gomoku_frontend
+      args:
+        - BACKEND_URL=http://backend:4125
+        - HTTP_PROXY
+        - HTTPS_PROXY
+        - http_proxy
+        - https_proxy
+        - NO_PROXY=*
+    container_name: gomoku_frontend_local
     environment:
       - BACKEND_URL=http://backend:4125
+      - NODE_ENV=development
     ports:
       - "3000:3000"
     depends_on:
       - backend
-    restart: always
+    restart: unless-stopped
+    networks:
+      - gomoku_net_local
 
 volumes:
-  pgdata:
-  redisdata:
+  pgdata_local:
+  redisdata_local:
+
+networks:
+  gomoku_net_local:
+    driver: bridge

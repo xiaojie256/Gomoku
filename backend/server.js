@@ -12,10 +12,14 @@ const adminRoutes = require("./routes/admin");
 // 1. 创建 HTTP server
 const server = http.createServer(app);
 
-// 2. 初始化 Socket.io，配置跨域
+// 2. 初始化 Socket.io，配置跨域（来源由 CORS_ORIGINS 环境变量控制）
+const corsOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
+  : ['http://localhost:3000', 'http://localhost:4125'];
+
 const io = new Server(server, {
   cors: {
-    origin: ["https://gomoku.xiaojie256.top", "http://localhost:3000", "http://localhost:4125"],
+    origin: corsOrigins,
     methods: ["GET", "POST"]
   }
 });
@@ -38,7 +42,7 @@ io.on('connection', (socket) => {
   });
 });
 
-app.use(cors()); // 允许跨域请求
+app.use(cors({ origin: corsOrigins }));
 app.use(express.json()); 
 
 app.use("/api/auth", authRoutes);

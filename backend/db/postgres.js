@@ -6,7 +6,14 @@ const pool = new Pool({
     host: process.env.DB_HOST || 'localhost',
     database: process.env.DB_NAME || 'gomoku_db',
     password: process.env.DB_PASSWORD || 'gomoku_password',
-    port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5435, // 对应上面 docker-compose 的映射
+    port: parseInt(process.env.DB_PORT || '5432'),
+    max: parseInt(process.env.DB_POOL_MAX || '20'),
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+});
+
+pool.on('error', (err) => {
+    console.error('PostgreSQL 连接池异常:', err);
 });
 
 pool.on('connect', () => {

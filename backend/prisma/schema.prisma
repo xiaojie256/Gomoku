@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  username      String   @unique @db.VarChar(50)
+  password_hash String   @db.VarChar(255)
+  is_admin      Boolean  @default(false)
+  created_at    DateTime @default(now())
+
+  // Relations
+  black_boards Board[] @relation("BlackUser")
+  white_boards Board[] @relation("WhiteUser")
+  moves        Move[]
+
+  @@map("users")
+}
+
+model Board {
+  id            Int       @id @default(autoincrement())
+  status        String    @default("playing") @db.VarChar(20)
+  winner_id     Int?
+  black_user_id Int?
+  white_user_id Int?
+  is_public     Boolean   @default(true)
+  secret_code   String?   @db.VarChar(10)
+  created_at    DateTime  @default(now())
+  expires_at    DateTime?
+
+  // Relations
+  black_user User?  @relation("BlackUser", fields: [black_user_id], references: [id])
+  white_user User?  @relation("WhiteUser", fields: [white_user_id], references: [id])
+  moves      Move[]
+
+  @@map("boards")
+}
+
+model Move {
+  id         Int      @id @default(autoincrement())
+  board_id   Int
+  user_id    Int?
+  x          Int
+  y          Int
+  player     Int
+  created_at DateTime @default(now())
+
+  // Relations
+  board Board  @relation(fields: [board_id], references: [id], onDelete: Cascade)
+  user  User?  @relation(fields: [user_id], references: [id])
+
+  @@map("moves")
+}
+
+model GlobalSettings {
+  key        String   @id @db.VarChar(50)
+  value      String   @db.VarChar(255)
+  updated_at DateTime @updatedAt
+
+  @@map("global_settings")
+}

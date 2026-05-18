@@ -189,9 +189,9 @@ export default function LobbyPage() {
               <div className="room-title">对局房间 #{room.id}</div>
               <StatusBadge status={room.status} />
             </div>
-            <button className="btn btn-secondary" onClick={() => router.push(`/board/${room.id}`)}>
+            <Link href={`/board/${room.id}`} className="btn btn-secondary">
               <span>观战 / 进入</span>
-            </button>
+            </Link>
           </div>
         ))}
       </div>

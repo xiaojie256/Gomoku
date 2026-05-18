@@ -51,4 +51,8 @@ router.get("/stats", authenticateToken, requireAdmin, adminController.getStats);
 router.get("/settings", authenticateToken, requireAdmin, adminController.getSettings);
 router.put("/settings", authenticateToken, requireAdmin, adminController.updateSetting);
 
+// 系统配置接口 (用于前端控制台)
+router.get("/config", authenticateToken, requireAdmin, adminController.getConfig);
+router.post("/config", authenticateToken, requireAdmin, adminController.updateConfig);
+
 module.exports = router;

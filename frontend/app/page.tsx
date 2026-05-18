@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { fetchWithAuth, clearAuthToken } from '@/utils/auth';
 
@@ -33,8 +33,10 @@ const StatusBadge = ({ status }: { status: string }) => {
 
 export default function LobbyPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const [secretCode, setSecretCode] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [publicRooms, setPublicRooms] = useState<Room[]>([]);
   const [historyRooms, setHistoryRooms] = useState<Room[]>([]);
   const [isLoadingRooms, setIsLoadingRooms] = useState(true);
@@ -96,6 +98,28 @@ export default function LobbyPage() {
     }
   }, [currentUser]);
 
+  // 1. Route change detection - force unlock UI when pathname changes (including back navigation)
+  useEffect(() => {
+    setIsNavigating(false);
+  }, [pathname]);
+
+  // 2. BOM event listeners for iOS/Safari BFCache and browser back button
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setIsNavigating(false);
+    };
+
+    const handlePopState = () => setIsNavigating(false);
+
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
   const handleCreateRoom = async (isPublic: boolean) => {
     if (!currentUser) {
       alert('请先登录后再创建对局');
@@ -103,6 +127,8 @@ export default function LobbyPage() {
       return;
     }
 
+    if (isNavigating) return;
+    setIsNavigating(true);
     setIsCreating(true);
     try {
       const res = await fetchWithAuth('/api/game/create', {
@@ -124,6 +150,7 @@ export default function LobbyPage() {
       alert('网络请求失败');
     } finally {
       setIsCreating(false);
+      setIsNavigating(false);
     }
   };
 
@@ -134,8 +161,12 @@ export default function LobbyPage() {
       return;
     }
 
+    if (isNavigating) return;
+    setIsNavigating(true);
+
     if (secretCode.length !== 6) {
       alert('请输入完整的 6 位验证暗码');
+      setIsNavigating(false);
       return;
     }
     try {
@@ -153,6 +184,8 @@ export default function LobbyPage() {
       }
     } catch (error) {
       alert('暗码鉴权失败');
+    } finally {
+      setIsNavigating(false);
     }
   };
 
@@ -251,11 +284,11 @@ export default function LobbyPage() {
               <h2 className="section-title" style={{ marginBottom: '8px' }}>开辟新棋局</h2>
               <p className="section-desc">您将作为房主默认执黑子先行。私密局自动生成 6 位反混淆一次性密码。</p>
               <div className="action-buttons">
-                <button className="btn btn-primary" onClick={() => handleCreateRoom(true)} disabled={isCreating}>
-                  创建公开局
+                <button className="btn btn-primary" onClick={() => handleCreateRoom(true)} disabled={isCreating || isNavigating}>
+                  {isNavigating ? '连接中...' : '创建公开局'}
                 </button>
-                <button className="btn btn-secondary" onClick={() => handleCreateRoom(false)} disabled={isCreating}>
-                  建立加密私密局
+                <button className="btn btn-secondary" onClick={() => handleCreateRoom(false)} disabled={isCreating || isNavigating}>
+                  {isNavigating ? '连接中...' : '建立加密私密局'}
                 </button>
               </div>
             </div>
@@ -272,8 +305,8 @@ export default function LobbyPage() {
                   onChange={(e) => setSecretCode(e.target.value.replace(/[^0-9a-zA-Z]/g, '').toUpperCase())}
                   className="form-input secret-code-input"
                 />
-                <button className="btn btn-primary" onClick={handleJoinPrivate}>
-                  安全解码并进入战场
+                <button className="btn btn-primary" onClick={handleJoinPrivate} disabled={isNavigating}>
+                  {isNavigating ? '连接中...' : '安全解码并进入战场'}
                 </button>
               </div>
             </div>

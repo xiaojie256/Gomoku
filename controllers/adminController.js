@@ -187,3 +187,85 @@ exports.updateSetting = async (req, res) => {
     res.status(500).json({ error: "更新设置失败" });
   }
 };
+
+// 获取系统配置 (用于前端控制台)
+exports.getConfig = async (req, res) => {
+  try {
+    // 从 Redis 或 PostgreSQL 获取 max_users 配置
+    let maxUsers = 100; // 默认值
+    const cachedMaxUsers = await redisClient.get("global_settings:max_users");
+    if (cachedMaxUsers) {
+      maxUsers = parseInt(cachedMaxUsers);
+    } else {
+      const result = await pool.query("SELECT value FROM global_settings WHERE key = 'max_users'");
+      if (result.rows.length > 0) {
+        maxUsers = parseInt(result.rows[0].value);
+        await redisClient.set("global_settings:max_users", maxUsers.toString());
+      }
+    }
+
+    // 获取 max_active_games 配置
+    let maxActiveGames = 5; // 默认值
+    const cachedMaxActiveGames = await redisClient.get("global_settings:max_active_games");
+    if (cachedMaxActiveGames) {
+      maxActiveGames = parseInt(cachedMaxActiveGames);
+    } else {
+      const result = await pool.query("SELECT value FROM global_settings WHERE key = 'max_active_games'");
+      if (result.rows.length > 0) {
+        maxActiveGames = parseInt(result.rows[0].value);
+        await redisClient.set("global_settings:max_active_games", maxActiveGames.toString());
+      }
+    }
+
+    res.json({
+      success: true,
+      max_users: maxUsers,
+      max_active_games: maxActiveGames,
+    });
+  } catch (err) {
+    console.error("获取配置失败:", err);
+    res.status(500).json({ error: "获取配置失败" });
+  }
+};
+
+// 更新系统配置 (用于前端控制台)
+exports.updateConfig = async (req, res) => {
+  const { max_users, max_active_games } = req.body;
+
+  try {
+    // 更新 max_users
+    if (max_users !== undefined) {
+      const maxUsersValue = parseInt(max_users);
+      if (isNaN(maxUsersValue) || maxUsersValue < 1) {
+        return res.status(400).json({ error: "max_users 必须是大于 0 的数字" });
+      }
+      await pool.query(
+        "INSERT INTO global_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP",
+        ["max_users", maxUsersValue.toString()]
+      );
+      await redisClient.set("global_settings:max_users", maxUsersValue.toString());
+    }
+
+    // 更新 max_active_games
+    if (max_active_games !== undefined) {
+      const maxActiveGamesValue = parseInt(max_active_games);
+      if (isNaN(maxActiveGamesValue) || maxActiveGamesValue < 1) {
+        return res.status(400).json({ error: "max_active_games 必须是大于 0 的数字" });
+      }
+      await pool.query(
+        "INSERT INTO global_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP",
+        ["max_active_games", maxActiveGamesValue.toString()]
+      );
+      await redisClient.set("global_settings:max_active_games", maxActiveGamesValue.toString());
+    }
+
+    res.json({
+      success: true,
+      max_users: max_users !== undefined ? parseInt(max_users) : undefined,
+      max_active_games: max_active_games !== undefined ? parseInt(max_active_games) : undefined,
+    });
+  } catch (err) {
+    console.error("更新配置失败:", err);
+    res.status(500).json({ error: "更新配置失败" });
+  }
+};

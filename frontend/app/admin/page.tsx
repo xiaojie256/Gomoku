@@ -54,6 +54,7 @@ export default function AdminPage() {
   const [maxActiveGames, setMaxActiveGames] = useState<number>(5);
   const [maxUsers, setMaxUsers] = useState<number>(100);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [newMaxUsers, setNewMaxUsers] = useState<number | string>('');
   const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'games'>('stats');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,19 +99,18 @@ export default function AdminPage() {
   const loadStats = async () => {
     setLoading(true);
     try {
-      const [statsRes, settingsRes] = await Promise.all([
+      const backendUrl = (globalThis as any).process?.env?.NEXT_PUBLIC_API_URL || '';
+      const [statsRes, configRes] = await Promise.all([
         fetchWithAuth('/api/admin/stats'),
-        fetchWithAuth('/api/admin/settings')
+        fetchWithAuth(`${backendUrl}/api/admin/config`)
       ]);
       const statsData = await statsRes.json();
-      const settingsData = await settingsRes.json();
-      
+      const configData = await configRes.json();
+
       if (statsData.success) setStats(statsData.stats);
-      if (settingsData.success && settingsData.settings.max_active_games) {
-        setMaxActiveGames(parseInt(settingsData.settings.max_active_games));
-      }
-      if (settingsData.success && settingsData.settings.max_users) {
-        setMaxUsers(parseInt(settingsData.settings.max_users));
+      if (configData.success) {
+        if (configData.max_active_games) setMaxActiveGames(configData.max_active_games);
+        if (configData.max_users) setMaxUsers(configData.max_users);
       }
     } catch (err) {
       setError('加载统计信息失败');
@@ -162,9 +162,11 @@ export default function AdminPage() {
   const handleSaveSetting = async (key: string, value: number) => {
     setIsSavingSettings(true);
     try {
-      const res = await fetchWithAuth('/api/admin/settings', {
-        method: 'PUT',
-        body: JSON.stringify({ key, value }),
+      const backendUrl = (globalThis as any).process?.env?.NEXT_PUBLIC_API_URL || '';
+      const payload = key === 'max_users' ? { max_users: value } : { max_active_games: value };
+      const res = await fetchWithAuth(`${backendUrl}/api/admin/config`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         alert('参数重载下发成功');
@@ -269,17 +271,18 @@ export default function AdminPage() {
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                     参数调优
                   </h2>
-                  <div className="panel" style={{ padding: '24px', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <div>
-                      <label className="block text-gray-400 text-sm mb-2 font-medium">单人同时进行中的最大对局数</label>
-                      <div style={{ display: 'flex', gap: '16px' }}>
-                        <input 
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+                    {/* 原有功能：单人最大对局数 */}
+                    <div className="panel" style={{ padding: '24px' }}>
+                      <label className="block text-gray-400 text-sm mb-3 font-medium">单人同时进行中的最大对局数</label>
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <input
                           type="number" min="1" max="50"
                           value={maxActiveGames}
                           onChange={(e) => setMaxActiveGames(parseInt(e.target.value) || 1)}
                           className="form-input"
                         />
-                        <button 
+                        <button
                           onClick={() => handleSaveSetting('max_active_games', maxActiveGames)}
                           disabled={isSavingSettings}
                           className="btn btn-primary"
@@ -288,27 +291,52 @@ export default function AdminPage() {
                           保存修改
                         </button>
                       </div>
+                      <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '12px' }}>
+                        修改后即刻生效，限制用户同时开局的数量，防范恶意霸占系统资源。
+                      </p>
                     </div>
-                    <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', width: '100%' }}></div>
-                    <div>
-                      <label className="block text-gray-400 text-sm mb-2 font-medium">系统允许的最大注册账号总数</label>
-                      <div style={{ display: 'flex', gap: '16px' }}>
-                        <input 
-                          type="number" min="1" max="10000"
-                          value={maxUsers}
-                          onChange={(e) => setMaxUsers(parseInt(e.target.value) || 1)}
+
+                    {/* 全新功能：全局注册人数上限 */}
+                    <div className="panel" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
+                      {/* 装饰性背景光晕 */}
+                      <div style={{
+                        position: 'absolute', top: 0, right: 0, width: '128px', height: '128px',
+                        background: 'rgba(147, 51, 234, 0.1)', filter: 'blur(40px)', borderRadius: '50%',
+                        transform: 'translate(50%, -50%)', pointerEvents: 'none'
+                      }}></div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '12px' }}>
+                        <label className="block text-gray-400 text-sm font-medium">系统全局注册人数上限</label>
+                        <span style={{ fontSize: '0.75rem', background: 'rgba(31, 41, 55, 1)', color: '#a78bfa', padding: '4px 8px', borderRadius: '4px' }}>
+                          当前: <strong style={{ color: 'white', marginLeft: '4px' }}>{maxUsers}</strong> 人
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <input
+                          type="number"
+                          value={newMaxUsers}
+                          onChange={(e) => setNewMaxUsers(e.target.value)}
+                          placeholder="输入新的全局熔断阈值"
                           className="form-input"
+                          min={1}
                         />
-                        <button 
-                          onClick={() => handleSaveSetting('max_users', maxUsers)}
-                          disabled={isSavingSettings}
+                        <button
+                          onClick={() => {
+                            if (!newMaxUsers || isNaN(Number(newMaxUsers))) return;
+                            handleSaveSetting('max_users', Number(newMaxUsers));
+                            setNewMaxUsers('');
+                          }}
+                          disabled={isSavingSettings || !newMaxUsers}
                           className="btn btn-primary"
                           style={{ whiteSpace: 'nowrap' }}
                         >
-                          保存修改
+                          {isSavingSettings ? '提交中...' : '保存修改'}
                         </button>
                       </div>
-                      <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '12px' }}>触及此阈值后，所有新账户注册请求将被前置拦截。</p>
+                      <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '12px' }}>
+                        修改后即刻更新 Redis 与 PostgreSQL。当注册总数达到此阈值时，自动闭站触发物理熔断，停止新用户注册。
+                      </p>
                     </div>
                   </div>
                 </div>

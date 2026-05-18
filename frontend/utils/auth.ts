@@ -26,7 +26,16 @@ export async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}) 
     headers.Authorization = `Bearer ${token}`;
   }
 
-  return fetch(input, {
+  // Prepend backend API URL if configured and input is a string starting with /api/
+  let url = input;
+  if (typeof input === 'string' && input.startsWith('/api/')) {
+    const backendUrl = (globalThis as any).process?.env?.NEXT_PUBLIC_API_URL;
+    if (backendUrl) {
+      url = `${backendUrl}${input}`;
+    }
+  }
+
+  return fetch(url, {
     ...init,
     headers,
     credentials: 'include',

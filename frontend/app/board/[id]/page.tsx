@@ -1,10 +1,9 @@
 'use client';
 
 import GomokuBoard from '@/components/GomokuBoard';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function BoardPage({ params }: { params: { id: string } }) {
-  const router = useRouter();
   const boardId = parseInt(params.id, 10);
 
   return (
@@ -16,9 +15,9 @@ export default function BoardPage({ params }: { params: { id: string } }) {
             <h1 className="page-title">对局 #{boardId}</h1>
             <p className="page-subtitle">棋局数据来自真实后端存储，落子记录会同步保存。</p>
           </div>
-          <button className="btn btn-tertiary" onClick={() => router.push('/')}>
+          <Link href="/" className="btn btn-tertiary">
             返回大厅
-          </button>
+          </Link>
         </div>
 
         <div className="board-panel">

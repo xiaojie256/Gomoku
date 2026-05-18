@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { setAuthToken } from '@/utils/auth';
 
 export default function LoginPage() {
@@ -72,9 +73,9 @@ export default function LoginPage() {
             登录
           </button>
 
-          <button className="btn btn-tertiary" type="button" onClick={() => router.push('/register')}>
+          <Link href="/register" className="btn btn-tertiary" style={{ justifyContent: 'center' }}>
             还没账号？注册
-          </button>
+          </Link>
         </form>
       </div>
     </main>

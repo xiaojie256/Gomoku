@@ -52,6 +52,7 @@ export default function AdminPage() {
   const [games, setGames] = useState<Game[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [maxActiveGames, setMaxActiveGames] = useState<number>(5);
+  const [maxUsers, setMaxUsers] = useState<number>(100);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'games'>('stats');
   const [loading, setLoading] = useState(true);
@@ -108,6 +109,9 @@ export default function AdminPage() {
       if (settingsData.success && settingsData.settings.max_active_games) {
         setMaxActiveGames(parseInt(settingsData.settings.max_active_games));
       }
+      if (settingsData.success && settingsData.settings.max_users) {
+        setMaxUsers(parseInt(settingsData.settings.max_users));
+      }
     } catch (err) {
       setError('加载统计信息失败');
     } finally {
@@ -155,20 +159,20 @@ export default function AdminPage() {
     } catch (err) { alert('删除失败'); }
   };
 
-  const handleSaveSettings = async () => {
+  const handleSaveSetting = async (key: string, value: number) => {
     setIsSavingSettings(true);
     try {
       const res = await fetchWithAuth('/api/admin/settings', {
         method: 'PUT',
-        body: JSON.stringify({ key: 'max_active_games', value: maxActiveGames }),
+        body: JSON.stringify({ key, value }),
       });
       if (res.ok) {
-        alert('设置已保存');
+        alert('参数重载下发成功');
       } else {
-        alert('保存失败');
+        alert('参数持久化失败');
       }
     } catch (err) {
-      alert('保存失败');
+      alert('请求物理异常');
     } finally {
       setIsSavingSettings(false);
     }
@@ -265,27 +269,47 @@ export default function AdminPage() {
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                     参数调优
                   </h2>
-                  <div className="panel" style={{ padding: '24px', maxWidth: '400px' }}>
-                    <label className="block text-gray-400 text-sm mb-2 font-medium">单人同时进行中的最大对局数</label>
-                    <div style={{ display: 'flex', gap: '16px' }}>
-                      <input 
-                        type="number" 
-                        min="1" 
-                        max="50"
-                        value={maxActiveGames}
-                        onChange={(e) => setMaxActiveGames(parseInt(e.target.value) || 1)}
-                        className="form-input"
-                      />
-                      <button 
-                        onClick={handleSaveSettings}
-                        disabled={isSavingSettings}
-                        className="btn btn-primary"
-                        style={{ whiteSpace: 'nowrap' }}
-                      >
-                        {isSavingSettings ? '保存中...' : '保存修改'}
-                      </button>
+                  <div className="panel" style={{ padding: '24px', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2 font-medium">单人同时进行中的最大对局数</label>
+                      <div style={{ display: 'flex', gap: '16px' }}>
+                        <input 
+                          type="number" min="1" max="50"
+                          value={maxActiveGames}
+                          onChange={(e) => setMaxActiveGames(parseInt(e.target.value) || 1)}
+                          className="form-input"
+                        />
+                        <button 
+                          onClick={() => handleSaveSetting('max_active_games', maxActiveGames)}
+                          disabled={isSavingSettings}
+                          className="btn btn-primary"
+                          style={{ whiteSpace: 'nowrap' }}
+                        >
+                          保存修改
+                        </button>
+                      </div>
                     </div>
-                    <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '12px' }}>修改后即刻生效，限制用户同时开局的数量，防范恶意霸占系统资源。</p>
+                    <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', width: '100%' }}></div>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2 font-medium">系统允许的最大注册账号总数</label>
+                      <div style={{ display: 'flex', gap: '16px' }}>
+                        <input 
+                          type="number" min="1" max="10000"
+                          value={maxUsers}
+                          onChange={(e) => setMaxUsers(parseInt(e.target.value) || 1)}
+                          className="form-input"
+                        />
+                        <button 
+                          onClick={() => handleSaveSetting('max_users', maxUsers)}
+                          disabled={isSavingSettings}
+                          className="btn btn-primary"
+                          style={{ whiteSpace: 'nowrap' }}
+                        >
+                          保存修改
+                        </button>
+                      </div>
+                      <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '12px' }}>触及此阈值后，所有新账户注册请求将被前置拦截。</p>
+                    </div>
                   </div>
                 </div>
               </div>

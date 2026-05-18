@@ -44,6 +44,7 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
   const [currentUser, setCurrentUser] = useState<{ id: number; username: string } | null>(null);
   const [boardInfo, setBoardInfo] = useState<any>({}); 
   const [replayStep, setReplayStep] = useState<number>(-1);
+  const [pendingMove, setPendingMove] = useState<{ x: number; y: number } | null>(null);
 
   const fetchGameData = useCallback(async (showLoading = false) => {
     if (showLoading) setIsLoading(true);
@@ -216,8 +217,26 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
       ctx.strokeText(moveNumber, xPixel, yPixel);
     });
 
+    // 5. 绘制待确认的预选虚影与高亮准星
+    if (pendingMove && replayStep === -1 && boardState.gameState === 0) {
+      const xPixel = BASE_PADDING + pendingMove.x * BASE_CELL_SIZE;
+      const yPixel = BASE_PADDING + pendingMove.y * BASE_CELL_SIZE;
+
+      // 半透明棋子虚影
+      ctx.beginPath();
+      ctx.arc(xPixel, yPixel, BASE_CELL_SIZE / 2 - 2, 0, Math.PI * 2);
+      ctx.fillStyle = boardState.currentPlayer === 1 ? 'rgba(0, 0, 0, 0.4)' : 'rgba(255, 255, 255, 0.6)';
+      ctx.fill();
+
+      // 准星锁定框 (红色醒目提示再次点击)
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ef4444';
+      const boxSize = BASE_CELL_SIZE - 4;
+      ctx.strokeRect(xPixel - boxSize / 2, yPixel - boxSize / 2, boxSize, boxSize);
+    }
+
     ctx.restore();
-  }, [boardState.moveHistory, replayStep]);
+  }, [boardState.moveHistory, replayStep, pendingMove, boardState.currentPlayer, boardState.gameState]);
 
   // 高阶触控坐标归一化转换算法（Fix Click/Touch Alignment Bug）
   const handleCanvasClick = async (event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -258,6 +277,13 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
     const index = gridY * BOARD_SIZE + gridX;
     if (boardState.board[index] !== 0) return;
 
+    // 核心拦截：两次点击坐标不一致，设为预选并终止
+    if (!pendingMove || pendingMove.x !== gridX || pendingMove.y !== gridY) {
+      setPendingMove({ x: gridX, y: gridY });
+      return;
+    }
+
+    // 两次点击坐标一致，进入落子提交流程
     setIsLoading(true);
 
     try {
@@ -289,8 +315,10 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
         winner: data.gameState === 1 ? boardState.currentPlayer : null,
         moveHistory: [...boardState.moveHistory, newMove],
       });
+      setPendingMove(null);
     } catch (error: any) {
       alert(`落子失败: ${error.message}`);
+      setPendingMove(null);
     } finally {
       setIsLoading(false);
     }
@@ -308,6 +336,7 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
         if (res.ok && data.success) {
           await fetchGameData(true);
           setReplayStep(-1);
+          setPendingMove(null);
         } else {
           alert(data.error || '重置失败');
         }
@@ -325,6 +354,7 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
         moveHistory: [],
       });
       setReplayStep(-1);
+      setPendingMove(null);
     }
   };
 
@@ -343,7 +373,7 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
 
   useEffect(() => {
     drawBoard();
-  }, [drawBoard, boardState.moveHistory, replayStep]);
+  }, [drawBoard, boardState.moveHistory, replayStep, pendingMove]);
 
   return (
     <div className="gomoku-board-shell">

@@ -1,4 +1,5 @@
 const pool = require("../db/postgres");
+const redisClient = require("../db/redis");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
@@ -22,6 +23,24 @@ exports.register = async (req, res) => {
 
   const client = await pool.connect();
   try {
+    // 【修改点 2】注入总人数阈值拦截逻辑 (防刷库/控制体量)
+    let maxUsersLimit = 100; // 默认防线
+    const cachedLimit = await redisClient.get("global_settings:max_users");
+    if (cachedLimit) {
+      maxUsersLimit = parseInt(cachedLimit);
+    } else {
+      const settingsRes = await client.query("SELECT value FROM global_settings WHERE key = 'max_users'");
+      if (settingsRes.rows.length > 0) {
+        maxUsersLimit = parseInt(settingsRes.rows[0].value);
+        await redisClient.set("global_settings:max_users", maxUsersLimit.toString());
+      }
+    }
+
+    const countRes = await client.query("SELECT count(*) FROM users");
+    if (parseInt(countRes.rows[0].count) >= maxUsersLimit) {
+      return res.status(403).json({ error: `系统注册人数已达 ${maxUsersLimit} 人上限，已闭站停止新进访问` });
+    }
+
     const exist = await client.query(
       "SELECT id FROM users WHERE username = $1",
       [username],

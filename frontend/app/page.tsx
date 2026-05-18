@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { fetchWithAuth, clearAuthToken } from '@/utils/auth';
 
 interface Room {
@@ -215,8 +216,8 @@ export default function LobbyPage() {
             ) : (
               <div className="user-info">
                 <span>未受托鉴权令牌。</span>
-                <button className="btn btn-tertiary" onClick={() => router.push('/login')}>登录</button>
-                <button className="btn btn-tertiary" onClick={() => router.push('/register')}>注册</button>
+                <Link href="/login" className="btn btn-tertiary">登录</Link>
+                <Link href="/register" className="btn btn-tertiary">注册</Link>
               </div>
             )}
           </div>

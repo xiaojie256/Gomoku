@@ -269,3 +269,41 @@ exports.updateConfig = async (req, res) => {
     res.status(500).json({ error: "更新配置失败" });
   }
 };
+
+// 获取所有棋盘列表（包含过期状态）
+exports.getBoardsAdmin = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, status, is_public, expires_at, created_at,
+      CASE WHEN expires_at < NOW() THEN true ELSE false END as is_expired
+      FROM boards ORDER BY created_at DESC
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: "获取列表失败" });
+  }
+};
+
+// 后台手动删除/关闭棋盘
+exports.deleteBoard = async (req, res) => {
+  const { boardId } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("DELETE FROM moves WHERE board_id = $1", [boardId]);
+    await client.query("DELETE FROM boards WHERE id = $1", [boardId]);
+    
+    await client.query("COMMIT");
+    
+    // 通知该房间内的玩家棋局被管理员解散
+    const io = req.app.get('io');
+    io.to(boardId).emit('board_terminated', { message: "该棋局已被管理员强制解散" });
+    
+    res.json({ success: true });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ error: "删除失败" });
+  } finally {
+    client.release();
+  }
+};

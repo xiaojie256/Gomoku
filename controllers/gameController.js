@@ -36,13 +36,18 @@ exports.submitMove = async (req, res) => {
 
     // 1. 获取棋局状态并加锁
     const boardRes = await client.query(
-      "SELECT status, black_user_id, white_user_id, created_at FROM boards WHERE id = $1 FOR UPDATE",
+      "SELECT status, black_user_id, white_user_id, created_at, expires_at FROM boards WHERE id = $1 FOR UPDATE",
       [boardId],
     );
     if (boardRes.rows.length === 0) throw new Error("棋盘不存在");
     const board = boardRes.rows[0];
 
-    // 2. 检查 10 天生命周期限制
+    // 2. 检查 TTL 过期
+    if (board.expires_at && new Date(board.expires_at) < new Date()) {
+      throw new Error("该棋局已过期自动关闭");
+    }
+
+    // 3. 检查 10 天生命周期限制
     const daysDiff =
       (new Date() - new Date(board.created_at)) / (1000 * 3600 * 24);
     if (daysDiff > 10 && board.status === "playing") {
@@ -117,6 +122,15 @@ exports.submitMove = async (req, res) => {
     }
 
     await client.query("COMMIT");
+    
+    // 核心：通过 WebSocket 通知房间内的其他玩家
+    const io = req.app.get('io');
+    io.to(boardId).emit('board_updated', {
+      x, y, player,
+      gameState,
+      status: gameState !== 0 ? (gameState === 1 ? 'finished' : 'draw') : 'playing'
+    });
+    
     res.json({ success: true, gameState, x, y, player });
   } catch (err) {
     await client.query("ROLLBACK");
@@ -175,14 +189,16 @@ exports.createGame = async (req, res) => {
     }
 
     const secretCode = isPublic ? null : generateSecretCode();
+    // 设定存活时间：当前时间往后推 2 小时
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
     const result = await client.query(
-      "INSERT INTO boards (black_user_id, is_public, secret_code, status) VALUES ($1, $2, $3, 'playing') RETURNING id",
-      [userId, isPublic, secretCode],
+      "INSERT INTO boards (black_user_id, is_public, secret_code, status, expires_at) VALUES ($1, $2, $3, 'playing', $4) RETURNING id",
+      [userId, isPublic, secretCode, expiresAt],
     );
     const board = result.rows[0];
     // 不在暗码验证环节自动分配白方，保留首个实际落子时的 "先落子得白" 机制。
     // 仅返回可加入的棋盘 ID，实际身份在第一次落子时由后端在事务内确定并绑定。
-    res.json({ success: true, boardId: board.id, secretCode });
+    res.json({ success: true, boardId: board.id, secretCode, expiresAt });
   } catch (err) {
     console.error("建局失败:", err);
     res.status(500).json({ error: "建局事务失败" });

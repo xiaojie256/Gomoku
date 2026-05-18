@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { fetchWithAuth } from '@/utils/auth';
+import { io, Socket } from 'socket.io-client';
 
 // 严格定义逻辑尺寸基准（Logical Coordinate Space Baseline）
 const BOARD_SIZE = 15;
@@ -106,40 +107,32 @@ export default function GomokuBoard({ boardId }: GomokuBoardProps) {
     loadCurrentUser();
     fetchGameData(true);
 
-    let timerId: NodeJS.Timeout | null = null;
-    const startPolling = () => {
-      if (timerId) clearInterval(timerId);
-      timerId = setInterval(() => {
-        if (boardState.gameState === 0 && document.visibilityState === 'visible' && !document.hidden) {
-          fetchGameData(false); 
-        }
-      }, 6000);
-    };
+    // WebSocket 连接
+    const socket: Socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4125');
 
-    const stopPolling = () => {
-      if (timerId) {
-        clearInterval(timerId);
-        timerId = null;
-      }
-    };
+    socket.on('connect', () => {
+      console.log('WebSocket 已连接');
+      socket.emit('join_board', boardId);
+    });
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchGameData(false); 
-        startPolling();
-      } else {
-        stopPolling(); 
-      }
-    };
+    socket.on('board_updated', (newData) => {
+      console.log('收到棋盘更新:', newData);
+      fetchGameData(false);
+    });
 
-    startPolling();
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    socket.on('board_terminated', (data) => {
+      alert(data.message);
+      window.location.href = '/';
+    });
+
+    socket.on('disconnect', () => {
+      console.log('WebSocket 已断开');
+    });
 
     return () => {
-      stopPolling();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      socket.disconnect();
     };
-  }, [fetchGameData, boardState.gameState]);
+  }, [boardId, fetchGameData]);
 
   // 高清重绘引擎（DPR Backing Store Rescale）
   const drawBoard = useCallback(() => {

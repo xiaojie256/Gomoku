@@ -71,6 +71,10 @@ exports.submitMove = async (req, res) => {
     }
     if (player === 2) {
       if (!board.white_user_id) {
+        // 新增校验：防止黑方玩家（房主）抢占白方身份
+        if (board.black_user_id === userId) {
+          throw new Error("房主不能同时执白子，无法自己挑战自己");
+        }
         // 首个落子的白方，锁定身份
         await client.query(
           "UPDATE boards SET white_user_id = $1 WHERE id = $2",
@@ -178,7 +182,7 @@ exports.createGame = async (req, res) => {
     const board = result.rows[0];
     // 不在暗码验证环节自动分配白方，保留首个实际落子时的 "先落子得白" 机制。
     // 仅返回可加入的棋盘 ID，实际身份在第一次落子时由后端在事务内确定并绑定。
-    res.json({ success: true, boardId: board.id });
+    res.json({ success: true, boardId: board.id, secretCode });
   } catch (err) {
     console.error("建局失败:", err);
     res.status(500).json({ error: "建局事务失败" });
